@@ -71,7 +71,7 @@ namespace HttpContextMover
             {
                 var symbol = semanticModel.GetSymbolInfo(p.Type);
 
-                return symbol.Symbol.Equals(property.Type);
+                return SymbolEqualityComparer.IncludeNullability.Equals(symbol.Symbol, property.Type);
             });
 
             if (parameter is null)
