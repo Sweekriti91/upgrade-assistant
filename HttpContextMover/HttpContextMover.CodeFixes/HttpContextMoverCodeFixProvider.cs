@@ -4,6 +4,8 @@ using Microsoft.CodeAnalysis.CodeFixes;
 using Microsoft.CodeAnalysis.CSharp;
 using Microsoft.CodeAnalysis.CSharp.Syntax;
 using Microsoft.CodeAnalysis.Editing;
+using Microsoft.CodeAnalysis.FindSymbols;
+using Microsoft.CodeAnalysis.Operations;
 using Microsoft.CodeAnalysis.Rename;
 using Microsoft.CodeAnalysis.Text;
 using System;
@@ -13,6 +15,8 @@ using System.Composition;
 using System.Linq;
 using System.Threading;
 using System.Threading.Tasks;
+
+using static Microsoft.CodeAnalysis.CSharp.SyntaxFactory;
 
 namespace HttpContextMover
 {
@@ -67,6 +71,7 @@ namespace HttpContextMover
 
             var editor = await DocumentEditor.CreateAsync(document, cancellationToken);
 
+            // Add parameter if not available
             var parameter = methodDecl.ParameterList.Parameters.FirstOrDefault(p =>
             {
                 var symbol = semanticModel.GetSymbolInfo(p.Type);
@@ -74,19 +79,48 @@ namespace HttpContextMover
                 return SymbolEqualityComparer.IncludeNullability.Equals(symbol.Symbol, property.Type);
             });
 
+            var propertyTypeSyntaxNode = editor.Generator.NameExpression(property.Type);
+
             if (parameter is null)
             {
                 var ps = editor.Generator.GetParameters(methodDecl);
                 var current = editor.Generator.IdentifierName("currentContext");
-                var type = editor.Generator.NameExpression(property.Type);
-                parameter = (ParameterSyntax)editor.Generator.ParameterDeclaration("currentContext", type);
+                parameter = (ParameterSyntax)editor.Generator.ParameterDeclaration("currentContext", propertyTypeSyntaxNode);
 
                 editor.AddParameter(methodDecl, parameter);
             }
 
+            // Update node usage
             var name = editor.Generator.IdentifierName(parameter.Identifier.Text);
 
             editor.ReplaceNode(node, name);
+
+            // Check callers
+            var callers = await SymbolFinder.FindCallersAsync(methodSymbol, document.Project.Solution, cancellationToken);
+            var root = await document.GetSyntaxRootAsync(cancellationToken);
+            var httpContextCurrent = (ArgumentSyntax)editor.Generator.Argument(ParseExpression("HttpContext.Current"));
+
+            foreach (var caller in callers)
+            {
+                var location = caller.Locations.FirstOrDefault();
+
+                if (location is null)
+                {
+                    continue;
+                }
+
+                var callerNode = root.FindNode(location.SourceSpan);
+
+                if (callerNode is null)
+                {
+                    continue;
+                }
+
+                var invocationExpression = callerNode.FirstAncestorOrSelf<InvocationExpressionSyntax>();
+                var argList = invocationExpression.ArgumentList.AddArguments(httpContextCurrent);
+
+                editor.ReplaceNode(invocationExpression, invocationExpression.WithArgumentList(argList));
+            }
 
             return editor.GetChangedDocument().Project.Solution;
         }
