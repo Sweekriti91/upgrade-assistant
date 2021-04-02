@@ -50,7 +50,7 @@ namespace HttpContextMover.Test
         }
     }";
 
-            var expected = VerifyCS.Diagnostic("HttpContextMover").WithLocation(0).WithArguments("System.Web.HttpContext.Current");
+            var expected = VerifyCS.Diagnostic("HttpContextMover").WithLocation(0);
             await VerifyCS.VerifyCodeFixAsync(test, expected, fixtest);
         }
 
@@ -78,7 +78,7 @@ namespace HttpContextMover.Test
         }
     }";
 
-            var expected = VerifyCS.Diagnostic("HttpContextMover").WithLocation(0).WithArguments("System.Web.HttpContext.Current");
+            var expected = VerifyCS.Diagnostic("HttpContextMover").WithLocation(0);
             await VerifyCS.VerifyCodeFixAsync(test, expected, fixtest);
         }
 
@@ -112,7 +112,7 @@ namespace HttpContextMover.Test
         }
     }";
 
-            var expected = VerifyCS.Diagnostic("HttpContextMover").WithLocation(0).WithArguments("System.Web.HttpContext.Current");
+            var expected = VerifyCS.Diagnostic("HttpContextMover").WithLocation(0);
             await VerifyCS.VerifyCodeFixAsync(test, expected, fixtest);
         }
 
@@ -146,7 +146,7 @@ namespace HttpContextMover.Test
         }
     }";
 
-            var expected = VerifyCS.Diagnostic("HttpContextMover").WithLocation(0).WithArguments("System.Web.HttpContext.Current");
+            var expected = VerifyCS.Diagnostic("HttpContextMover").WithLocation(0);
             await VerifyCS.VerifyCodeFixAsync(test, expected, fixtest);
         }
 
@@ -190,8 +190,8 @@ namespace HttpContextMover.Test
         }
     }";
 
-            var expected1 = VerifyCS.Diagnostic("HttpContextMover").WithLocation(0).WithArguments("System.Web.HttpContext.Current");
-            var expected2 = VerifyCS.Diagnostic().WithLocation(0).WithArguments("System.Web.HttpContext.Current");
+            var expected1 = VerifyCS.Diagnostic("HttpContextMover").WithLocation(0);
+            var expected2 = VerifyCS.Diagnostic().WithLocation(0);
 
             await VerifyCS.VerifyCodeFixAsync(test, expected1, fixtest, expected2);
         }
@@ -210,7 +210,7 @@ namespace HttpContextMover.Test
         }
     }";
 
-            var expected1 = VerifyCS.Diagnostic("HttpContextMover").WithLocation(0).WithArguments("System.Web.HttpContext.Current");
+            var expected1 = VerifyCS.Diagnostic("HttpContextMover").WithLocation(0);
 
             await VerifyCS.VerifyCodeFixAsync(test, expected1, test, expected1);
         }
@@ -259,7 +259,7 @@ namespace HttpContextMover.Test
             public object Instance() => Program.Instance({|#0:HttpContext.Current|});
         }
     }";
-            var expected = VerifyCS.Diagnostic("HttpContextMover").WithLocation(0).WithArguments("System.Web.HttpContext.Current");
+            var expected = VerifyCS.Diagnostic("HttpContextMover").WithLocation(0);
 
             var test = new VerifyCS.Test
             {
@@ -319,7 +319,7 @@ namespace HttpContextMover.Test
             public object Instance() => Program.Instance({|#0:System.Web.HttpContext.Current|});
         }
     }";
-            var expected = VerifyCS.Diagnostic("HttpContextMover").WithLocation(0).WithArguments("System.Web.HttpContext.Current");
+            var expected = VerifyCS.Diagnostic("HttpContextMover").WithLocation(0);
 
             var test = new VerifyCS.Test
             {

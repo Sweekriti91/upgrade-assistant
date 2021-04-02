@@ -117,16 +117,16 @@
   <resheader name="writer">
     <value>System.Resources.ResXResourceWriter, System.Windows.Forms, Version=4.0.0.0, Culture=neutral, PublicKeyToken=b77a5c561934e089</value>
   </resheader>
-  <data name="AnalyzerDescription" xml:space="preserve">
-    <value>Type names should be all uppercase.</value>
+  <data name="HttpContext1Description" xml:space="preserve">
+    <value>HttpContext.Current should not be used. Instead, the properties needed should be passed through via the method invocation. HttpContext.Current is not available in ASP.NET Core.</value>
     <comment>An optional longer localizable description of the diagnostic.</comment>
   </data>
-  <data name="AnalyzerMessageFormat" xml:space="preserve">
-    <value>Type name '{0}' contains lowercase letters</value>
+  <data name="HttpContext1MessageFormat" xml:space="preserve">
+    <value>HttpContext.Current should not be used</value>
     <comment>The format-able message the diagnostic displays.</comment>
   </data>
-  <data name="AnalyzerTitle" xml:space="preserve">
-    <value>Type name contains lowercase letters</value>
+  <data name="HttpContext1Title" xml:space="preserve">
+    <value>HttpContext.Current should not be used</value>
     <comment>The title of the diagnostic.</comment>
   </data>
 </root>

@@ -54,9 +54,9 @@ namespace HttpContextMover
             //// Register a code action that will invoke the fix.
             context.RegisterCodeFix(
                 CodeAction.Create(
-                    title: CodeFixResources.CodeFixTitle,
+                    title: CodeFixResources.HttpContextPassthroughCodeFixer,
                     createChangedSolution: c => MakeUppercaseAsync(context.Document, property, node, method, c),
-                    equivalenceKey: nameof(CodeFixResources.CodeFixTitle)),
+                    equivalenceKey: nameof(CodeFixResources.HttpContextPassthroughCodeFixer)),
                 diagnostic);
         }
 
