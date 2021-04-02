@@ -150,7 +150,6 @@ namespace HttpContextMover.Test
             await VerifyCS.VerifyCodeFixAsync(test, expected, fixtest);
         }
 
-
         [TestMethod]
         public async Task ReplaceCallerInSameDocument()
         {
@@ -280,9 +279,8 @@ namespace HttpContextMover.Test
             await test.RunAsync(CancellationToken.None);
         }
 
-
         [TestMethod]
-        public async Task MultipleFiles()
+        public async Task MultipleFilesNoSystemWebUsing()
         {
             var test1 = @"
     using System.Web;
@@ -318,7 +316,7 @@ namespace HttpContextMover.Test
     {
         class Program2
         {
-            public object Instance() => Program.Instance({|#0:global::System.Web.HttpContext.Current|});
+            public object Instance() => Program.Instance({|#0:System.Web.HttpContext.Current|});
         }
     }";
             var expected = VerifyCS.Diagnostic("HttpContextMover").WithLocation(0).WithArguments("System.Web.HttpContext.Current");
@@ -337,6 +335,9 @@ namespace HttpContextMover.Test
             test.FixedState.Sources.Add(fix1);
             test.FixedState.Sources.Add(fix2);
             test.FixedState.ExpectedDiagnostics.Add(expected);
+
+            //We use a generator that ends up not creating the same syntax
+            test.CodeActionValidationMode = CodeActionValidationMode.None;
 
             await test.RunAsync(CancellationToken.None);
         }

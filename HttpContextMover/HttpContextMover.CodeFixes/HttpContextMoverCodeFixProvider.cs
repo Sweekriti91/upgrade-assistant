@@ -1,22 +1,14 @@
 ﻿using Microsoft.CodeAnalysis;
 using Microsoft.CodeAnalysis.CodeActions;
 using Microsoft.CodeAnalysis.CodeFixes;
-using Microsoft.CodeAnalysis.CSharp;
 using Microsoft.CodeAnalysis.CSharp.Syntax;
 using Microsoft.CodeAnalysis.Editing;
 using Microsoft.CodeAnalysis.FindSymbols;
-using Microsoft.CodeAnalysis.Operations;
-using Microsoft.CodeAnalysis.Rename;
-using Microsoft.CodeAnalysis.Text;
-using System;
-using System.Collections.Generic;
 using System.Collections.Immutable;
 using System.Composition;
 using System.Linq;
 using System.Threading;
 using System.Threading.Tasks;
-
-using static Microsoft.CodeAnalysis.CSharp.SyntaxFactory;
 
 namespace HttpContextMover
 {
@@ -102,12 +94,12 @@ namespace HttpContextMover
 
             editor.ReplaceNode(node, name);
 
-            await UpdateCallers(methodSymbol, slnEditor, cancellationToken);
+            await UpdateCallers(methodSymbol, property, slnEditor, cancellationToken);
 
             return slnEditor.GetChangedSolution();
         }
 
-        private async Task UpdateCallers(ISymbol methodSymbol, SolutionEditor slnEditor, CancellationToken token)
+        private async Task UpdateCallers(ISymbol methodSymbol, IPropertySymbol property, SolutionEditor slnEditor, CancellationToken token)
         {
             // Check callers
             var callers = await SymbolFinder.FindCallersAsync(methodSymbol, slnEditor.OriginalSolution, token);
@@ -128,7 +120,6 @@ namespace HttpContextMover
 
                 var editor = await slnEditor.GetDocumentEditorAsync(document.Id, token);
                 var root = await document.GetSyntaxRootAsync(token);
-                var httpContextCurrent = (ArgumentSyntax)editor.Generator.Argument(ParseExpression("HttpContext.Current"));
                 var callerNode = root.FindNode(location.SourceSpan, getInnermostNodeForTie: true);
 
                 if (callerNode is null)
@@ -143,7 +134,10 @@ namespace HttpContextMover
                     continue;
                 }
 
-                var argList = invocationExpression.ArgumentList.AddArguments(httpContextCurrent);
+                var httpContextType = editor.Generator.NameExpression(property.Type);
+                var expression = editor.Generator.MemberAccessExpression(httpContextType, "Current");
+                var httpContextCurrentArg = (ArgumentSyntax)editor.Generator.Argument(expression);
+                var argList = invocationExpression.ArgumentList.AddArguments(httpContextCurrentArg);
 
                 editor.ReplaceNode(invocationExpression, invocationExpression.WithArgumentList(argList));
             }
