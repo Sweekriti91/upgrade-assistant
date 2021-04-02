@@ -52,6 +52,34 @@ namespace HttpContextMover.Test
         }
 
         [TestMethod]
+        public async Task ExpressionBody()
+        {
+            var test = @"
+    using System.Web;
+
+    namespace ConsoleApplication1
+    {
+        class Program
+        {
+            public object Test() => {|#0:HttpContext.Current|};
+        }
+    }";
+            var fixtest = @"
+    using System.Web;
+
+    namespace ConsoleApplication1
+    {
+        class Program
+        {
+            public object Test(HttpContext currentContext) => currentContext;
+        }
+    }";
+
+            var expected = VerifyCS.Diagnostic("HttpContextMover").WithLocation(0).WithArguments("System.Web.HttpContext.Current");
+            await VerifyCS.VerifyCodeFixAsync(test, expected, fixtest);
+        }
+
+        [TestMethod]
         public async Task ReuseArgument()
         {
             var test = @"
