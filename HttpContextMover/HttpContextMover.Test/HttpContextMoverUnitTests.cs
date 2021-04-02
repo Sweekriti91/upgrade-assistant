@@ -130,5 +130,24 @@ namespace HttpContextMover.Test
 
             await VerifyCS.VerifyCodeFixAsync(test, expected1, fixtest, expected2);
         }
+
+        [TestMethod]
+        public async Task InProperty()
+        {
+            var test = @"
+    using System.Web;
+
+    namespace ConsoleApplication1
+    {
+        class Program
+        {
+            public object Instance => {|#0:HttpContext.Current|};
+        }
+    }";
+
+            var expected1 = VerifyCS.Diagnostic("HttpContextMover").WithLocation(0).WithArguments("System.Web.HttpContext.Current");
+
+            await VerifyCS.VerifyCodeFixAsync(test, expected1, test, expected1);
+        }
     }
 }

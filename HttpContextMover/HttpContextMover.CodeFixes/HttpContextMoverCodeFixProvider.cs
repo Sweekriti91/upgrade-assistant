@@ -44,7 +44,13 @@ namespace HttpContextMover
 
             //// Find the type declaration identified by the diagnostic.
             var node = root.FindNode(diagnosticSpan);
-            var method = node.Parent.AncestorsAndSelf().OfType<MethodDeclarationSyntax>().First();
+            var method = node.Parent.AncestorsAndSelf().OfType<MethodDeclarationSyntax>().FirstOrDefault();
+
+            if (method is null)
+            {
+                return;
+            }
+
             var semantic = await context.Document.GetSemanticModelAsync(context.CancellationToken);
             var symbol = semantic.GetSymbolInfo(node);
 
