@@ -1,12 +1,13 @@
 ﻿using Microsoft.CodeAnalysis;
 using Microsoft.CodeAnalysis.CodeActions;
-using System.Diagnostics.CodeAnalysis;
 using Microsoft.CodeAnalysis.CodeFixes;
 using Microsoft.CodeAnalysis.CSharp.Syntax;
 using Microsoft.CodeAnalysis.Editing;
 using Microsoft.CodeAnalysis.FindSymbols;
+using Microsoft.CodeAnalysis.Operations;
 using System.Collections.Immutable;
 using System.Composition;
+using System.Diagnostics.CodeAnalysis;
 using System.Linq;
 using System.Threading;
 using System.Threading.Tasks;
@@ -36,19 +37,7 @@ namespace HttpContextMover
                 return;
             }
 
-            // TODO: Replace the following code with your own analysis, generating a CodeAction for each fix to suggest
             var diagnostic = context.Diagnostics.First();
-            var diagnosticSpan = diagnostic.Location.SourceSpan;
-
-            //// Find the type declaration identified by the diagnostic.
-            var node = root.FindNode(diagnosticSpan, getInnermostNodeForTie: true);
-            var method = node.Parent?.AncestorsAndSelf().OfType<MethodDeclarationSyntax>().FirstOrDefault();
-
-            if (method is null)
-            {
-                return;
-            }
-
             var semantic = await context.Document.GetSemanticModelAsync(context.CancellationToken);
 
             if (semantic is null)
@@ -56,9 +45,17 @@ namespace HttpContextMover
                 return;
             }
 
-            var symbol = semantic.GetSymbolInfo(node);
+            // Find the type declaration identified by the diagnostic.
+            var node = root.FindNode(diagnostic.Location.SourceSpan, getInnermostNodeForTie: true);
 
-            if (symbol.Symbol is not IPropertySymbol property)
+            if (semantic.GetOperation(node, context.CancellationToken) is not IPropertyReferenceOperation property)
+            {
+                return;
+            }
+
+            var methodOperation = GetParent<IMethodBodyOperation>(property);
+
+            if (methodOperation is null)
             {
                 return;
             }
@@ -67,25 +64,64 @@ namespace HttpContextMover
             context.RegisterCodeFix(
                 CodeAction.Create(
                     title: CodeFixResources.HttpContextPassthroughCodeFixer,
-                    createChangedSolution: c => MakePassHttpContextThrough(context.Document, property, node, method, c),
+                    createChangedSolution: c => MakePassHttpContextThrough(context.Document, methodOperation, property, c),
                     equivalenceKey: nameof(CodeFixResources.HttpContextPassthroughCodeFixer)),
                 diagnostic);
         }
 
-        private async Task<Solution> MakePassHttpContextThrough(Document document, IPropertySymbol property, SyntaxNode node, MethodDeclarationSyntax methodDecl, CancellationToken cancellationToken)
+        private static TOperation? GetParent<TOperation>(IOperation? operation)
+            where TOperation : IOperation
         {
-            // Get the symbol representing the type to be renamed.
-            var semanticModel = await document.GetSemanticModelAsync(cancellationToken);
-
-            if (semanticModel is null)
+            while (operation is not null)
             {
-                return document.Project.Solution;
+                if (operation is TOperation t)
+                {
+                    return t;
+                }
+
+                operation = operation.Parent;
             }
 
+            return default;
+        }
+
+        private async Task<Solution> MakePassHttpContextThrough(Document document, IMethodBodyOperation methodOperation, IPropertyReferenceOperation propertyOperation, CancellationToken cancellationToken)
+        {
             var slnEditor = new SolutionEditor(document.Project.Solution);
             var editor = await slnEditor.GetDocumentEditorAsync(document.Id, cancellationToken);
 
             // Add parameter if not available
+            var parameter = await AddMethodParameter(editor, document, methodOperation, propertyOperation, cancellationToken);
+
+            if (parameter is null)
+            {
+                return document.Project.Solution;
+            }
+
+            // Update node usage
+            var name = editor.Generator.IdentifierName(parameter.Identifier.Text);
+
+            editor.ReplaceNode(propertyOperation.Syntax, name);
+
+            if (methodOperation.SemanticModel?.GetDeclaredSymbol(methodOperation.Syntax, cancellationToken) is ISymbol methodSymbol)
+            {
+                await UpdateCallers(methodSymbol, propertyOperation.Property, slnEditor, cancellationToken);
+            }
+
+            return slnEditor.GetChangedSolution();
+        }
+
+        private async Task<ParameterSyntax?> AddMethodParameter(DocumentEditor editor, Document document, IMethodBodyOperation methodOperation, IPropertyReferenceOperation propertyOperation, CancellationToken token)
+        {
+            // Get the symbol representing the type to be renamed.
+            var semanticModel = await document.GetSemanticModelAsync(token);
+
+            if (semanticModel is null)
+            {
+                return default;
+            }
+
+            var methodDecl = (MethodDeclarationSyntax)methodOperation.Syntax;
             var parameter = methodDecl.ParameterList.Parameters.FirstOrDefault(p =>
             {
                 if (p.Type is null)
@@ -95,10 +131,10 @@ namespace HttpContextMover
 
                 var symbol = semanticModel.GetSymbolInfo(p.Type);
 
-                return SymbolEqualityComparer.IncludeNullability.Equals(symbol.Symbol, property.Type);
+                return SymbolEqualityComparer.IncludeNullability.Equals(symbol.Symbol, propertyOperation.Property.Type);
             });
 
-            var propertyTypeSyntaxNode = editor.Generator.NameExpression(property.Type);
+            var propertyTypeSyntaxNode = editor.Generator.NameExpression(propertyOperation.Property.Type);
 
             if (parameter is null)
             {
@@ -109,17 +145,7 @@ namespace HttpContextMover
                 editor.AddParameter(methodDecl, parameter);
             }
 
-            // Update node usage
-            var name = editor.Generator.IdentifierName(parameter.Identifier.Text);
-
-            editor.ReplaceNode(node, name);
-
-            if (semanticModel.GetDeclaredSymbol(methodDecl, cancellationToken) is ISymbol methodSymbol)
-            {
-                await UpdateCallers(methodSymbol, property, slnEditor, cancellationToken);
-            }
-
-            return slnEditor.GetChangedSolution();
+            return parameter;
         }
 
         private async Task UpdateCallers(ISymbol methodSymbol, IPropertySymbol property, SolutionEditor slnEditor, CancellationToken token)
