@@ -1,5 +1,6 @@
 ﻿using Microsoft.CodeAnalysis;
 using Microsoft.CodeAnalysis.CodeActions;
+using System.Diagnostics.CodeAnalysis;
 using Microsoft.CodeAnalysis.CodeFixes;
 using Microsoft.CodeAnalysis.CSharp.Syntax;
 using Microsoft.CodeAnalysis.Editing;
@@ -30,13 +31,18 @@ namespace HttpContextMover
         {
             var root = await context.Document.GetSyntaxRootAsync(context.CancellationToken).ConfigureAwait(false);
 
+            if (root is null)
+            {
+                return;
+            }
+
             // TODO: Replace the following code with your own analysis, generating a CodeAction for each fix to suggest
             var diagnostic = context.Diagnostics.First();
             var diagnosticSpan = diagnostic.Location.SourceSpan;
 
             //// Find the type declaration identified by the diagnostic.
             var node = root.FindNode(diagnosticSpan, getInnermostNodeForTie: true);
-            var method = node.Parent.AncestorsAndSelf().OfType<MethodDeclarationSyntax>().FirstOrDefault();
+            var method = node.Parent?.AncestorsAndSelf().OfType<MethodDeclarationSyntax>().FirstOrDefault();
 
             if (method is null)
             {
@@ -44,6 +50,12 @@ namespace HttpContextMover
             }
 
             var semantic = await context.Document.GetSemanticModelAsync(context.CancellationToken);
+
+            if (semantic is null)
+            {
+                return;
+            }
+
             var symbol = semantic.GetSymbolInfo(node);
 
             if (symbol.Symbol is not IPropertySymbol property)
@@ -55,17 +67,20 @@ namespace HttpContextMover
             context.RegisterCodeFix(
                 CodeAction.Create(
                     title: CodeFixResources.HttpContextPassthroughCodeFixer,
-                    createChangedSolution: c => MakeUppercaseAsync(context.Document, property, node, method, c),
+                    createChangedSolution: c => MakePassHttpContextThrough(context.Document, property, node, method, c),
                     equivalenceKey: nameof(CodeFixResources.HttpContextPassthroughCodeFixer)),
                 diagnostic);
         }
 
-        private async Task<Solution> MakeUppercaseAsync(Document document, IPropertySymbol property, SyntaxNode node, MethodDeclarationSyntax methodDecl, CancellationToken cancellationToken)
+        private async Task<Solution> MakePassHttpContextThrough(Document document, IPropertySymbol property, SyntaxNode node, MethodDeclarationSyntax methodDecl, CancellationToken cancellationToken)
         {
             // Get the symbol representing the type to be renamed.
             var semanticModel = await document.GetSemanticModelAsync(cancellationToken);
-            var methodSymbol = semanticModel.GetDeclaredSymbol(methodDecl, cancellationToken);
-            //var callers = await Microsoft.CodeAnalysis.FindSymbols.SymbolFinder.FindCallersAsync(methodSymbol, document.Project.Solution, cancellationToken);
+
+            if (semanticModel is null)
+            {
+                return document.Project.Solution;
+            }
 
             var slnEditor = new SolutionEditor(document.Project.Solution);
             var editor = await slnEditor.GetDocumentEditorAsync(document.Id, cancellationToken);
@@ -73,6 +88,11 @@ namespace HttpContextMover
             // Add parameter if not available
             var parameter = methodDecl.ParameterList.Parameters.FirstOrDefault(p =>
             {
+                if (p.Type is null)
+                {
+                    return false;
+                }
+
                 var symbol = semanticModel.GetSymbolInfo(p.Type);
 
                 return SymbolEqualityComparer.IncludeNullability.Equals(symbol.Symbol, property.Type);
@@ -94,7 +114,10 @@ namespace HttpContextMover
 
             editor.ReplaceNode(node, name);
 
-            await UpdateCallers(methodSymbol, property, slnEditor, cancellationToken);
+            if (semanticModel.GetDeclaredSymbol(methodDecl, cancellationToken) is ISymbol methodSymbol)
+            {
+                await UpdateCallers(methodSymbol, property, slnEditor, cancellationToken);
+            }
 
             return slnEditor.GetChangedSolution();
         }
@@ -120,6 +143,12 @@ namespace HttpContextMover
 
                 var editor = await slnEditor.GetDocumentEditorAsync(document.Id, token);
                 var root = await document.GetSyntaxRootAsync(token);
+
+                if (root is null)
+                {
+                    continue;
+                }
+
                 var callerNode = root.FindNode(location.SourceSpan, getInnermostNodeForTie: true);
 
                 if (callerNode is null)
@@ -143,7 +172,7 @@ namespace HttpContextMover
             }
         }
 
-        private bool TryGetDocument(Solution sln, SyntaxTree? tree, CancellationToken token, out Document document)
+        private bool TryGetDocument(Solution sln, SyntaxTree? tree, CancellationToken token, [MaybeNullWhen(false)] out Document document)
         {
             if (tree is null)
             {
