@@ -43,7 +43,7 @@ namespace HttpContextMover
             var diagnosticSpan = diagnostic.Location.SourceSpan;
 
             //// Find the type declaration identified by the diagnostic.
-            var node = root.FindNode(diagnosticSpan);
+            var node = root.FindNode(diagnosticSpan, getInnermostNodeForTie: true);
             var method = node.Parent.AncestorsAndSelf().OfType<MethodDeclarationSyntax>().FirstOrDefault();
 
             if (method is null)
@@ -75,7 +75,8 @@ namespace HttpContextMover
             var methodSymbol = semanticModel.GetDeclaredSymbol(methodDecl, cancellationToken);
             //var callers = await Microsoft.CodeAnalysis.FindSymbols.SymbolFinder.FindCallersAsync(methodSymbol, document.Project.Solution, cancellationToken);
 
-            var editor = await DocumentEditor.CreateAsync(document, cancellationToken);
+            var slnEditor = new SolutionEditor(document.Project.Solution);
+            var editor = await slnEditor.GetDocumentEditorAsync(document.Id, cancellationToken);
 
             // Add parameter if not available
             var parameter = methodDecl.ParameterList.Parameters.FirstOrDefault(p =>
@@ -101,10 +102,15 @@ namespace HttpContextMover
 
             editor.ReplaceNode(node, name);
 
+            await UpdateCallers(methodSymbol, slnEditor, cancellationToken);
+
+            return slnEditor.GetChangedSolution();
+        }
+
+        private async Task UpdateCallers(ISymbol methodSymbol, SolutionEditor slnEditor, CancellationToken token)
+        {
             // Check callers
-            var callers = await SymbolFinder.FindCallersAsync(methodSymbol, document.Project.Solution, cancellationToken);
-            var root = await document.GetSyntaxRootAsync(cancellationToken);
-            var httpContextCurrent = (ArgumentSyntax)editor.Generator.Argument(ParseExpression("HttpContext.Current"));
+            var callers = await SymbolFinder.FindCallersAsync(methodSymbol, slnEditor.OriginalSolution, token);
 
             foreach (var caller in callers)
             {
@@ -115,7 +121,15 @@ namespace HttpContextMover
                     continue;
                 }
 
-                var callerNode = root.FindNode(location.SourceSpan);
+                if (!TryGetDocument(slnEditor.OriginalSolution, location.SourceTree, token, out var document))
+                {
+                    continue;
+                }
+
+                var editor = await slnEditor.GetDocumentEditorAsync(document.Id, token);
+                var root = await document.GetSyntaxRootAsync(token);
+                var httpContextCurrent = (ArgumentSyntax)editor.Generator.Argument(ParseExpression("HttpContext.Current"));
+                var callerNode = root.FindNode(location.SourceSpan, getInnermostNodeForTie: true);
 
                 if (callerNode is null)
                 {
@@ -123,12 +137,39 @@ namespace HttpContextMover
                 }
 
                 var invocationExpression = callerNode.FirstAncestorOrSelf<InvocationExpressionSyntax>();
+
+                if (invocationExpression is null)
+                {
+                    continue;
+                }
+
                 var argList = invocationExpression.ArgumentList.AddArguments(httpContextCurrent);
 
                 editor.ReplaceNode(invocationExpression, invocationExpression.WithArgumentList(argList));
             }
+        }
 
-            return editor.GetChangedDocument().Project.Solution;
+        private bool TryGetDocument(Solution sln, SyntaxTree? tree, CancellationToken token, out Document document)
+        {
+            if (tree is null)
+            {
+                document = null;
+                return false;
+            }
+
+            foreach (var project in sln.Projects)
+            {
+                var doc = project.GetDocument(tree);
+
+                if (doc is not null)
+                {
+                    document = doc;
+                    return true;
+                }
+            }
+
+            document = null;
+            return false;
         }
     }
 }
