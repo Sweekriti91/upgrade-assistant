@@ -5,6 +5,8 @@ using System;
 using System.IO;
 using System.Threading;
 using System.Threading.Tasks;
+using Autofac;
+using Autofac.Extensions.DependencyInjection;
 using Microsoft.DotNet.UpgradeAssistant;
 using Microsoft.DotNet.UpgradeAssistant.Cli;
 using Microsoft.DotNet.UpgradeAssistant.Steps.Packages;
@@ -42,6 +44,7 @@ namespace Integration.Tests
             };
 
             return await Program.RunUpgradeAsync(options, host => host
+                .UseServiceProviderFactory(new AutofacServiceProviderFactory())
                 .ConfigureServices((_, services) =>
                 {
                     services.AddOptions<PackageUpdaterOptions>().Configure(o =>
@@ -54,7 +57,15 @@ namespace Integration.Tests
                 {
                     logging.SetMinimumLevel(LogLevel.Trace);
                     logging.AddProvider(new TestOutputHelperLoggerProvider(output));
-                }), cts.Token).ConfigureAwait(false);
+                })
+                .ConfigureContainer<ContainerBuilder>(builder =>
+                {
+                    builder.RegisterType<KnownPackages>()
+                        .SingleInstance()
+                        .AsSelf();
+                    builder.RegisterDecorator<KnownPackageLoader, IPackageLoader>();
+                }),
+                cts.Token).ConfigureAwait(false);
         }
     }
 }

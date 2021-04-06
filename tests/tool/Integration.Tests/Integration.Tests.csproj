@@ -15,6 +15,7 @@
     </Content>
   </ItemGroup>
   <ItemGroup>
+    <PackageReference Include="Autofac.Extensions.DependencyInjection" />
     <PackageReference Include="coverlet.collector">
       <IncludeAssets>runtime; build; native; contentfiles; analyzers; buildtransitive</IncludeAssets>
       <PrivateAssets>all</PrivateAssets>
@@ -24,6 +25,11 @@
     <ProjectReference Include="..\..\..\src\cli\Microsoft.DotNet.UpgradeAssistant.Cli\Microsoft.DotNet.UpgradeAssistant.Cli.csproj" />
     <ProjectReference Include="..\..\..\src\steps\Microsoft.DotNet.UpgradeAssistant.Steps.Packages\Microsoft.DotNet.UpgradeAssistant.Steps.Packages.csproj" />
     <ProjectReference Include="..\..\Microsoft.DotNet.UpgradeAssistant.TestHelpers\Microsoft.DotNet.UpgradeAssistant.TestHelpers.csproj" />
+  </ItemGroup>
+  <ItemGroup>
+    <None Update="ExpectedPackageVersions.json">
+      <CopyToOutputDirectory>PreserveNewest</CopyToOutputDirectory>
+    </None>
   </ItemGroup>
   <Target Name="MoveAnalyzersToSourceUpdatersDir" AfterTargets="Build">
     <PropertyGroup>
