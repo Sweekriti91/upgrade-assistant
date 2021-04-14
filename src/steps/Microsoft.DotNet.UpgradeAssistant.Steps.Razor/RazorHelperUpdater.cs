@@ -4,6 +4,7 @@
 using System;
 using System.Collections.Generic;
 using System.Collections.Immutable;
+using System.Linq;
 using System.Text;
 using System.Threading;
 using System.Threading.Tasks;
@@ -21,14 +22,14 @@ namespace Microsoft.DotNet.UpgradeAssistant.Steps.Razor
 
         public BuildBreakRisk Risk => BuildBreakRisk.Medium;
 
-        public async Task<bool> ApplyAsync(IUpgradeContext context, ImmutableArray<RazorCodeDocument> inputs, CancellationToken token)
+        public async Task<IUpdaterResult> ApplyAsync(IUpgradeContext context, ImmutableArray<RazorCodeDocument> inputs, CancellationToken token)
         {
-            return true;
+            return new FileUpdaterResult(true, Enumerable.Empty<string>());
         }
 
-        public async Task<bool> IsApplicableAsync(IUpgradeContext context, ImmutableArray<RazorCodeDocument> inputs, CancellationToken token)
+        public async Task<IUpdaterResult> IsApplicableAsync(IUpgradeContext context, ImmutableArray<RazorCodeDocument> inputs, CancellationToken token)
         {
-            return true;
+            return new FileUpdaterResult(true, Enumerable.Empty<string>());
         }
     }
 }

@@ -40,7 +40,7 @@ namespace Microsoft.DotNet.UpgradeAssistant.Steps.Razor
             _logger = logger ?? throw new ArgumentNullException(nameof(logger));
         }
 
-        public async Task<bool> IsApplicableAsync(IUpgradeContext context, ImmutableArray<RazorCodeDocument> inputs, CancellationToken token)
+        public async Task<IUpdaterResult> IsApplicableAsync(IUpgradeContext context, ImmutableArray<RazorCodeDocument> inputs, CancellationToken token)
         {
             if (context is null)
             {
@@ -59,10 +59,10 @@ namespace Microsoft.DotNet.UpgradeAssistant.Steps.Razor
                 _logger.LogInformation("  {DiagnosticsCount} diagnostics need fixed in {FilePath}", diagnosticsGroup.Count(), diagnosticsGroup.Key);
             }
 
-            return mappedDiagnostics.Any();
+            return new FileUpdaterResult(mappedDiagnostics.Any(), diagnosticsByFile.Select(g => g.Key));
         }
 
-        public async Task<bool> ApplyAsync(IUpgradeContext context, ImmutableArray<RazorCodeDocument> inputs, CancellationToken token)
+        public async Task<IUpdaterResult> ApplyAsync(IUpgradeContext context, ImmutableArray<RazorCodeDocument> inputs, CancellationToken token)
         {
             if (context is null)
             {
@@ -107,7 +107,8 @@ namespace Microsoft.DotNet.UpgradeAssistant.Steps.Razor
 
             // Update cshtml
             _logger.LogDebug("Updating Razor documents based on changes made by code fix providers");
-            await ApplyMappedCodeChangesAsync(originalProject, inputs, project.Documents.Where(d => generatedFilePaths.Contains(d.FilePath)), token).ConfigureAwait(false);
+            var textReplacements = await GetReplacements(originalProject, project.Documents.Where(d => generatedFilePaths.Contains(d.FilePath)), token).ConfigureAwait(false);
+            ApplyMappedCodeChanges(textReplacements, inputs, token);
             await FixUpProjectFileAsync(context, token).ConfigureAwait(false);
 
             if (diagnosticsCount > 0)
@@ -115,10 +116,57 @@ namespace Microsoft.DotNet.UpgradeAssistant.Steps.Razor
                 _logger.LogWarning("Completing Razor source updates with {DiagnosticCount} diagnostics still unaddressed", diagnosticsCount);
             }
 
-            return true;
+            return new FileUpdaterResult(true, textReplacements.Select(r => r.OriginalText.FilePath).Distinct());
         }
 
-        private async Task ApplyMappedCodeChangesAsync(Project originalProject, ImmutableArray<RazorCodeDocument> razorDocuments, IEnumerable<Document> updatedDocuments, CancellationToken token)
+        private void ApplyMappedCodeChanges(IList<TextReplacement> replacements, ImmutableArray<RazorCodeDocument> razorDocuments, CancellationToken token)
+        {
+            var replacementsByFile = replacements.Distinct().OrderByDescending(t => t.OriginalText.StartingLine).GroupBy(t => t.OriginalText.FilePath);
+            foreach (var replacementGroup in replacementsByFile)
+            {
+                // TODO : Optimize this
+                var documentText = new StringBuilder(File.ReadAllText(replacementGroup.Key));
+                var razorDoc = razorDocuments.FirstOrDefault(d => d.Source.FilePath.Equals(replacementGroup.Key, StringComparison.OrdinalIgnoreCase));
+                if (razorDoc is null)
+                {
+                    throw new InvalidOperationException($"No Razor document found for generated source file {replacementGroup.Key}");
+                }
+
+                foreach (var replacement in replacementGroup)
+                {
+                    _logger.LogInformation("Updating source code in Razor document {FilePath} at line {Line}", replacement.OriginalText.FilePath, replacement.OriginalText.StartingLine);
+
+                    // Start looking for replacements at the start of the indicated line
+                    var startOffset = GetLineOffset(razorDoc, replacement.OriginalText.StartingLine);
+
+                    // Stop looking for replacements at the start of the first line after the indicated line plus the number of lines in the indicated text
+                    var endOffset = GetLineOffset(razorDoc, replacement.OriginalText.StartingLine + replacement.OriginalText.Text.Lines.Count);
+
+                    var originalText = replacement.OriginalText.Text.ToString();
+                    foreach (var change in replacement.NewText.GetTextChanges(replacement.OriginalText.Text))
+                    {
+                        // Trim the string that's being replaced because code from Razor code blocks will include a couple extra spaces (to make room for @{)
+                        // compared to the source that actually appeared in the cshtml file.
+                        var original = originalText.Substring(change.Span.Start, change.Span.Length).TrimStart();
+
+                        // If the original text was completely removed, also search for implicit and explicit Razor expression syntax (@ or @()) so that it will be cleaned up, too
+                        if (original.Equals(originalText.TrimStart(), StringComparison.Ordinal) && string.IsNullOrWhiteSpace(change.NewText))
+                        {
+                            var implicitExpression = $"@{original.Replace(";", string.Empty)}";
+                            var explicitExpression = $"@({original.Replace(";", string.Empty)})";
+                            documentText.Replace(implicitExpression, string.Empty, startOffset, endOffset - startOffset);
+                            documentText.Replace(explicitExpression, string.Empty, startOffset, endOffset - startOffset);
+                        }
+
+                        documentText.Replace(original, change.NewText?.TrimStart() ?? string.Empty, startOffset, endOffset - startOffset);
+                    }
+                }
+
+                File.WriteAllText(replacementGroup.Key, documentText.ToString());
+            }
+        }
+
+        private async Task<IList<TextReplacement>> GetReplacements(Project originalProject, IEnumerable<Document> updatedDocuments, CancellationToken token)
         {
             List<TextReplacement> replacements = new List<TextReplacement>();
             foreach (var updatedDocument in updatedDocuments)
@@ -175,49 +223,7 @@ namespace Microsoft.DotNet.UpgradeAssistant.Steps.Razor
                 replacements.AddRange(candidateReplacements.Where(c => !c.NewText.ContentEquals(c.OriginalText.Text)));
             }
 
-            var replacementsByFile = replacements.Distinct().OrderByDescending(t => t.OriginalText.StartingLine).GroupBy(t => t.OriginalText.FilePath);
-            foreach (var replacementGroup in replacementsByFile)
-            {
-                // TODO : Optimize this
-                var documentText = new StringBuilder(File.ReadAllText(replacementGroup.Key));
-                var razorDoc = razorDocuments.FirstOrDefault(d => d.Source.FilePath.Equals(replacementGroup.Key, StringComparison.OrdinalIgnoreCase));
-                if (razorDoc is null)
-                {
-                    throw new InvalidOperationException($"No Razor document found for generated source file {replacementGroup.Key}");
-                }
-
-                foreach (var replacement in replacementGroup)
-                {
-                    _logger.LogInformation("Updating source code in Razor document {FilePath} at line {Line}", replacement.OriginalText.FilePath, replacement.OriginalText.StartingLine);
-
-                    // Start looking for replacements at the start of the indicated line
-                    var startOffset = GetLineOffset(razorDoc, replacement.OriginalText.StartingLine);
-
-                    // Stop looking for replacements at the start of the first line after the indicated line plus the number of lines in the indicated text
-                    var endOffset = GetLineOffset(razorDoc, replacement.OriginalText.StartingLine + replacement.OriginalText.Text.Lines.Count);
-
-                    var originalText = replacement.OriginalText.Text.ToString();
-                    foreach (var change in replacement.NewText.GetTextChanges(replacement.OriginalText.Text))
-                    {
-                        // Trim the string that's being replaced because code from Razor code blocks will include a couple extra spaces (to make room for @{)
-                        // compared to the source that actually appeared in the cshtml file.
-                        var original = originalText.Substring(change.Span.Start, change.Span.Length).TrimStart();
-
-                        // If the original text was completely removed, also search for implicit and explicit Razor expression syntax (@ or @()) so that it will be cleaned up, too
-                        if (original.Equals(originalText.TrimStart(), StringComparison.Ordinal) && string.IsNullOrWhiteSpace(change.NewText))
-                        {
-                            var implicitExpression = $"@{original.Replace(";", string.Empty)}";
-                            var explicitExpression = $"@({original.Replace(";", string.Empty)})";
-                            documentText.Replace(implicitExpression, string.Empty, startOffset, endOffset - startOffset);
-                            documentText.Replace(explicitExpression, string.Empty, startOffset, endOffset - startOffset);
-                        }
-
-                        documentText.Replace(original, change.NewText?.TrimStart() ?? string.Empty, startOffset, endOffset - startOffset);
-                    }
-                }
-
-                File.WriteAllText(replacementGroup.Key, documentText.ToString());
-            }
+            return replacements;
         }
 
         private static int GetLineOffset(RazorCodeDocument razorDoc, int startingLine)
