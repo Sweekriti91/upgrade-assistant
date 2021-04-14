@@ -95,7 +95,7 @@ namespace Microsoft.DotNet.UpgradeAssistant.Steps.Razor
             catch (Exception exc)
 #pragma warning restore CA1031 // Do not catch general exception types
             {
-                Logger.LogError(exc, "Unexpected exception while apply Razor updater \"{RazorUpdater}\"", _updater.Title);
+                Logger.LogError(exc, "Unexpected exception while applying Razor updater \"{RazorUpdater}\"", _updater.Title);
                 return new UpgradeStepApplyResult(UpgradeStepStatus.Failed, $"Unexpected exception while applying Razor updater \"{_updater.Title}\": {exc}");
             }
         }
