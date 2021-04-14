@@ -52,7 +52,13 @@ namespace Microsoft.DotNet.UpgradeAssistant.Steps.Razor
 
             // Use mapped locations so that we only get a number of diagnostics corresponding to the number of cshtml locations that need fixed.
             var mappedDiagnostics = await GetDiagnosticsAsync(project, context, inputs.Select(GetGeneratedFilePath), new LocationAndIDComparer(true), token).ConfigureAwait(false);
-            _logger.LogDebug("Identified {DiagnosticCount} fixable diagnostics in Razor files in project {ProjectName}", mappedDiagnostics.Count(), project.Name);
+            _logger.LogInformation("Identified {DiagnosticCount} fixable diagnostics in Razor files in project {ProjectName} ()", mappedDiagnostics.Count(), project.Name);
+            var diagnosticsByFile = mappedDiagnostics.GroupBy(d => d.Location.GetMappedLineSpan().Path);
+            foreach (var diagnosticsGroup in diagnosticsByFile)
+            {
+                _logger.LogInformation("  {DiagnosticsCount} diagnostics need fixed in {FilePath}", diagnosticsGroup.Count(), diagnosticsGroup.Key);
+            }
+
             return mappedDiagnostics.Any();
         }
 
