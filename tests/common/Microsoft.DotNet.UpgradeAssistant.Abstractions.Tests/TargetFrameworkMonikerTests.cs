@@ -61,8 +61,11 @@ namespace Microsoft.DotNet.UpgradeAssistant.Abstractions.Tests
         {
             get
             {
+                yield return new object[] { new TargetFrameworkMoniker(".NETFramework", new Version(4, 5, 0)), Net45 };
                 yield return new object[] { new TargetFrameworkMoniker(".NETCoreApp", new Version(5, 0)), Net50 };
                 yield return new object[] { new TargetFrameworkMoniker("net", new Version(5, 0, 0)), Net50 };
+                yield return new object[] { TargetFrameworkMoniker.Net50 with { Platform = string.Empty }, Net50 };
+                yield return new object[] { TargetFrameworkMoniker.Net50_Windows with { PlatformVersion = new Version(0, 0, 0, 0) }, Net50_Windows };
                 yield return new object[] { new TargetFrameworkMoniker(".NETCoreApp", new Version(5, 0, 0)), Net50 };
                 yield return new object[] { new TargetFrameworkMoniker(".NETStandard", new Version(2, 1, 0)), NetStandard21 };
             }

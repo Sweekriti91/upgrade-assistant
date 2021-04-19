@@ -54,6 +54,7 @@ namespace Microsoft.DotNet.UpgradeAssistant
         }
 
         private const string NetStandardNamePrefix = "netstandard";
+        private const string NetFrameworkPrefix = "netframework";
         private const string NetPrefix = "net";
         private const string NetCorePrefix = "netcoreapp";
 
@@ -68,9 +69,27 @@ namespace Microsoft.DotNet.UpgradeAssistant
             {
                 Framework = NormalizedFramework,
                 FrameworkVersion = NormalizeVersion(FrameworkVersion) ?? FrameworkVersion,
-                Platform = IsWindows ? Platforms.Windows : Platform,
+                Platform = NormalizedPlatform,
                 PlatformVersion = NormalizeVersion(PlatformVersion)
             };
+
+        private string? NormalizedPlatform
+        {
+            get
+            {
+                if (IsWindows)
+                {
+                    return Platforms.Windows;
+                }
+
+                if (string.IsNullOrEmpty(Platform))
+                {
+                    return null;
+                }
+
+                return Platform;
+            }
+        }
 
         public virtual bool Equals(TargetFrameworkMoniker? obj)
         {
@@ -136,90 +155,42 @@ namespace Microsoft.DotNet.UpgradeAssistant
 
         public override string ToString()
         {
+            var normalized = Normalize();
             var sb = new StringBuilder();
+
+            sb.Append(normalized.Framework);
+            sb.Append(normalized.FrameworkVersion);
 
             if (IsFramework)
             {
-                sb.Append(NetPrefix);
-                WriteVersionString(sb, FrameworkVersion, false);
+                sb.Replace(".", string.Empty);
             }
-            else if (IsNet50OrAbove)
+            else if (IsNet50OrAbove && normalized.Platform is not null)
             {
-                sb.Append(NetPrefix);
-                WriteVersionString(sb, FrameworkVersion, true);
+                sb.Append('-');
+                sb.Append(normalized.Platform);
 
-                if (Platform is not null)
+                if (PlatformVersion is not null)
                 {
-                    sb.Append('-');
-                    sb.Append(Platform);
-
-                    if (PlatformVersion is not null)
-                    {
-                        sb.Append(PlatformVersion);
-                    }
+                    sb.Append(normalized.PlatformVersion);
                 }
-            }
-            else if (IsNetCoreApp)
-            {
-                sb.Append(NetCorePrefix);
-                WriteVersionString(sb, FrameworkVersion, true);
-            }
-            else if (IsNetStandard)
-            {
-                sb.Append(NetStandardNamePrefix);
-                WriteVersionString(sb, FrameworkVersion, true);
             }
 
             return sb.ToString();
         }
 
-        private void WriteVersionString(StringBuilder builder, Version version, bool includeDecimal)
+        public bool IsFramework
         {
-            var count = VersionCount(version);
-
-            builder.Append(version.Major);
-            AppendDecimal();
-
-            builder.Append(version.Minor);
-
-            if (count > 2)
+            get
             {
-                AppendDecimal();
-                builder.Append(version.Build);
-            }
+                if (Framework.Equals(NetPrefix, StringComparison.OrdinalIgnoreCase) && !Is50OrAbove)
+                {
+                    return true;
+                }
 
-            if (count > 3)
-            {
-                AppendDecimal();
-                builder.Append(version.Revision);
-            }
-
-            void AppendDecimal()
-            {
-                if (includeDecimal)
-                {
-                    builder.Append('.');
-                }
-            }
-
-            static int VersionCount(Version v)
-            {
-                if (v.Revision > 0)
-                {
-                    return 4;
-                }
-                else if (v.Build > 0)
-                {
-                    return 3;
-                }
-                else
-                {
-                    return 2;
-                }
+                return Framework.ToUpperInvariant().Contains(NetFrameworkPrefix.ToUpperInvariant());
             }
         }
-
-        public bool IsFramework => Framework.Equals(NetPrefix, StringComparison.OrdinalIgnoreCase) && !Is50OrAbove;
 
         public bool IsNetStandard => Framework.ToUpperInvariant().Contains(NetStandardNamePrefix.ToUpperInvariant());
 
