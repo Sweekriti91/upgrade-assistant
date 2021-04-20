@@ -142,17 +142,14 @@ namespace Microsoft.DotNet.UpgradeAssistant
 
             return this with
             {
-                Framework = NormalizedFramework,
+                Framework = GetNormalizedFramework(),
                 FrameworkVersion = NormalizeVersion(FrameworkVersion) ?? FrameworkVersion,
-                Platform = NormalizedPlatform,
+                Platform = GetNormalizedPlatform(),
                 PlatformVersion = NormalizeVersion(PlatformVersion),
                 IsNormalized = true,
             };
-        }
 
-        private string? NormalizedPlatform
-        {
-            get
+            string? GetNormalizedPlatform()
             {
                 if (IsWindows)
                 {
@@ -166,11 +163,8 @@ namespace Microsoft.DotNet.UpgradeAssistant
 
                 return Platform;
             }
-        }
 
-        private string NormalizedFramework
-        {
-            get
+            string GetNormalizedFramework()
             {
                 if (IsFramework || IsNet50OrAbove)
                 {
@@ -189,15 +183,15 @@ namespace Microsoft.DotNet.UpgradeAssistant
                     return Framework;
                 }
             }
-        }
 
-        private static Version? NormalizeVersion(Version? v) => v switch
-        {
-            null => null,
-            (0, 0, 0, 0) => null,
-            _ when v.Build > 0 && v.Revision > 0 => v,
-            _ when v.Build > 0 => new Version(v.Major, v.Minor, v.Build),
-            _ => new Version(v.Major, v.Minor),
-        };
+            static Version? NormalizeVersion(Version? v) => v switch
+            {
+                null => null,
+                (0, 0, 0, 0) => null,
+                _ when v.Build > 0 && v.Revision > 0 => v,
+                _ when v.Build > 0 => new Version(v.Major, v.Minor, v.Build),
+                _ => new Version(v.Major, v.Minor),
+            };
+        }
     }
 }
