@@ -18,7 +18,7 @@
     <PackageReference Include="Microsoft.CodeAnalysis.VisualBasic.CodeRefactoring.Testing.MSTest" Version="1.0.1-beta1.*" />
   </ItemGroup>
   <ItemGroup>
-    <ProjectReference Include="..\..\src\HttpContextMover.CodeFixes\HttpContextMover.CodeFixes.csproj" />
+    <ProjectReference Include="..\..\src\HttpContextMover.CodeFixes.CSharp\HttpContextMover.CodeFixes.CSharp.csproj" />
     <ProjectReference Include="..\..\src\HttpContextMover\HttpContextMover.csproj" />
   </ItemGroup>
 </Project>

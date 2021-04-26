@@ -3,6 +3,7 @@ using Microsoft.VisualStudio.TestTools.UnitTesting;
 using System.Collections.Immutable;
 using System.Threading;
 using System.Threading.Tasks;
+
 using VerifyCS = HttpContextMover.Test.CSharpCodeFixVerifier<
     HttpContextMover.HttpContextMoverAnalyzer,
     HttpContextMover.HttpContextMoverCodeFixProvider>;
