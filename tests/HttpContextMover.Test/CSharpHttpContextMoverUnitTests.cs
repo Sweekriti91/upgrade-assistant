@@ -151,6 +151,42 @@ namespace HttpContextMover.Test
         }
 
         [Fact]
+        public async Task ReuseParameterName()
+        {
+            var test = @"
+    using System.Web;
+
+    namespace ConsoleApp1
+    {
+        public class Program
+        {
+            private static void Test()
+            {
+                Test2({|#0:HttpContext.Current|});
+            }
+            public static void Test2(HttpContext currentContext) => Test();
+        }
+    }";
+            var fixtest = @"
+    using System.Web;
+
+    namespace ConsoleApp1
+    {
+        public class Program
+        {
+            private static void Test(HttpContext currentContext)
+            {
+                Test2(currentContext);
+            }
+            public static void Test2(HttpContext currentContext) => Test(currentContext);
+        }
+    }";
+
+            var expected = VerifyCS.Diagnostic("HttpContextMover").WithLocation(0);
+            await VerifyCS.VerifyCodeFixAsync(test, expected, fixtest);
+        }
+
+        [Fact]
         public async Task ReplaceCallerInSameDocument()
         {
             var test = @"

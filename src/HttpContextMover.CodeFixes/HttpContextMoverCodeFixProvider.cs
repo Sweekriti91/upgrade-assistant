@@ -67,7 +67,7 @@ namespace HttpContextMover
                 diagnostic);
         }
 
-        private IOperation? GetEnclosingMethodOperation(IOperation? operation)
+        protected IOperation? GetEnclosingMethodOperation(IOperation? operation)
         {
             while (operation is not null)
             {
@@ -103,10 +103,35 @@ namespace HttpContextMover
 
             if (methodOperation.SemanticModel?.GetDeclaredSymbol(methodOperation.Syntax, cancellationToken) is ISymbol methodSymbol)
             {
-                await UpdateCallers(methodSymbol, propertyOperation.Property, slnEditor, cancellationToken);
+                await UpdateCallers(methodOperation.SemanticModel, methodSymbol, propertyOperation.Property, slnEditor, cancellationToken);
             }
 
             return slnEditor.GetChangedSolution();
+        }
+
+        private IParameterSymbol? GetExistingParameterSymbol(SemanticModel semanticModel, ITypeSymbol? type, IOperation operation, CancellationToken token)
+        {
+            if (type is null)
+            {
+                return null;
+            }
+
+            var symbol = semanticModel.GetDeclaredSymbol(operation.Syntax, token);
+
+            if (symbol is not IMethodSymbol method)
+            {
+                return null;
+            }
+
+            return method.Parameters.FirstOrDefault(p =>
+            {
+                if (p.Type is null)
+                {
+                    return false;
+                }
+
+                return SymbolEqualityComparer.IncludeNullability.Equals(p.Type, type);
+            });
         }
 
         private async Task<SyntaxNode?> AddMethodParameter(DocumentEditor editor, Document document, IOperation methodOperation, IPropertyReferenceOperation propertyOperation, CancellationToken token)
@@ -119,22 +144,7 @@ namespace HttpContextMover
                 return default;
             }
 
-            var symbol = semanticModel.GetDeclaredSymbol(methodOperation.Syntax, token);
-
-            if (symbol is not IMethodSymbol method)
-            {
-                return null;
-            }
-
-            var parameter = method.Parameters.FirstOrDefault(p =>
-            {
-                if (p.Type is null)
-                {
-                    return false;
-                }
-
-                return SymbolEqualityComparer.IncludeNullability.Equals(p.Type, propertyOperation.Property.Type);
-            });
+            var parameter = GetExistingParameterSymbol(semanticModel, propertyOperation.Type, methodOperation, token);
 
             if (parameter is not null && !parameter.DeclaringSyntaxReferences.IsEmpty)
             {
@@ -143,23 +153,16 @@ namespace HttpContextMover
 
             var propertyTypeSyntaxNode = editor.Generator.NameExpression(propertyOperation.Property.Type);
 
-            if (parameter is null)
-            {
-                const string CurrentContextName = "currentContext";
+            const string CurrentContextName = "currentContext";
 
-                var ps = editor.Generator.GetParameters(methodOperation.Syntax);
-                var current = editor.Generator.IdentifierName(CurrentContextName);
-                var p = editor.Generator.ParameterDeclaration(CurrentContextName, propertyTypeSyntaxNode);
+            var p = editor.Generator.ParameterDeclaration(CurrentContextName, propertyTypeSyntaxNode);
 
-                editor.AddParameter(methodOperation.Syntax, p);
+            editor.AddParameter(methodOperation.Syntax, p);
 
-                return p;
-            }
-
-            return null;
+            return p;
         }
 
-        private async Task UpdateCallers(ISymbol methodSymbol, IPropertySymbol property, SolutionEditor slnEditor, CancellationToken token)
+        private async Task UpdateCallers(SemanticModel semanticModel, ISymbol methodSymbol, IPropertySymbol property, SolutionEditor slnEditor, CancellationToken token)
         {
             // Check callers
             var callers = await SymbolFinder.FindCallersAsync(methodSymbol, slnEditor.OriginalSolution, token);
@@ -193,11 +196,47 @@ namespace HttpContextMover
                     continue;
                 }
 
-                ReplaceMethod(callerNode, editor, property);
+                ReplaceMethod(semanticModel, callerNode, editor, property);
             }
         }
 
-        protected abstract void ReplaceMethod(SyntaxNode callerNode, SyntaxEditor editor, IPropertySymbol property);
+        protected string? GetEnclosingMethodParameterName(SemanticModel semanticModel, ITypeSymbol type, SyntaxNode node, CancellationToken token)
+        {
+            var operation = semanticModel.GetOperation(node);
+
+            if (operation is null)
+            {
+                return null;
+            }
+
+            var methodOperation = GetEnclosingMethodOperation(operation);
+
+            if (methodOperation is null)
+            {
+                return null;
+            }
+
+            var parameter = GetExistingParameterSymbol(semanticModel, type, methodOperation, token);
+
+            return parameter?.Name;
+        }
+
+        protected SyntaxNode GetParameter(SemanticModel model, IPropertySymbol property, SyntaxEditor editor, SyntaxNode invocation, CancellationToken token)
+        {
+            var name = GetEnclosingMethodParameterName(model, property.Type, invocation, token);
+
+            if (name is not null)
+            {
+                return editor.Generator.Argument(editor.Generator.IdentifierName(name));
+            }
+
+            var httpContextType = editor.Generator.NameExpression(property.Type);
+            var expression = editor.Generator.MemberAccessExpression(httpContextType, "Current");
+
+            return editor.Generator.Argument(expression);
+        }
+
+        protected abstract void ReplaceMethod(SemanticModel semanticModel, SyntaxNode callerNode, SyntaxEditor editor, IPropertySymbol property);
 
         protected abstract bool IsEnclosedMethodOperation(IOperation operation);
 

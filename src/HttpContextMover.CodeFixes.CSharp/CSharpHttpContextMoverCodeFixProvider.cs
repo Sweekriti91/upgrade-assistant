@@ -13,7 +13,7 @@ namespace HttpContextMover
         protected override bool IsEnclosedMethodOperation(IOperation operation)
             => operation is IMethodBodyOperation;
 
-        protected override void ReplaceMethod(SyntaxNode callerNode, SyntaxEditor editor, IPropertySymbol property)
+        protected override void ReplaceMethod(SemanticModel semanticModel, SyntaxNode callerNode, SyntaxEditor editor, IPropertySymbol property)
         {
             var invocationExpression = callerNode.FirstAncestorOrSelf<InvocationExpressionSyntax>();
 
@@ -22,10 +22,8 @@ namespace HttpContextMover
                 return;
             }
 
-            var httpContextType = editor.Generator.NameExpression(property.Type);
-            var expression = editor.Generator.MemberAccessExpression(httpContextType, "Current");
-            var httpContextCurrentArg = (ArgumentSyntax)editor.Generator.Argument(expression);
-            var argList = invocationExpression.ArgumentList.AddArguments(httpContextCurrentArg);
+            var newArg = (ArgumentSyntax)GetParameter(semanticModel, property, editor, invocationExpression, default);
+            var argList = invocationExpression.ArgumentList.AddArguments(newArg);
 
             editor.ReplaceNode(invocationExpression, invocationExpression.WithArgumentList(argList));
         }

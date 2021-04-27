@@ -77,6 +77,40 @@ namespace HttpContextMover.Test
         }
 
         [Fact]
+        public async Task ReuseParameterName()
+        {
+            var test = @"
+    Imports System.Web
+
+    Namespace ConsoleApplication1
+        Class Program
+            Public Sub Test()
+                Test2({|#0:HttpContext.Current|})
+            End Sub
+            Public Sub Test2(currentContext As HttpContext)
+                Test()
+            End Sub
+        End Class
+    End Namespace";
+            var fixtest = @"
+    Imports System.Web
+
+    Namespace ConsoleApplication1
+        Class Program
+            Public Sub Test(currentContext As HttpContext)
+                Test2(currentContext)
+            End Sub
+            Public Sub Test2(currentContext As HttpContext)
+                Test(currentContext)
+            End Sub
+        End Class
+    End Namespace";
+
+            var expected = VerifyVB.Diagnostic("HttpContextMover").WithLocation(0);
+            await VerifyVB.VerifyCodeFixAsync(test, expected, fixtest);
+        }
+
+        [Fact]
         public async Task InArgument()
         {
             var test = @"
