@@ -11,6 +11,7 @@ namespace HttpContextMover
     {
         protected override bool IsEnclosedMethodOperation(IOperation operation)
             => operation is IMethodBodyOperation;
+
         protected override InvocationExpressionSyntax AddArgumentToInvocation(InvocationExpressionSyntax invocationNode, ArgumentSyntax argument)
             => invocationNode.WithArgumentList(invocationNode.ArgumentList.AddArguments(argument));
     }
