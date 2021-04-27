@@ -13,7 +13,9 @@ using System.Threading.Tasks;
 
 namespace HttpContextMover
 {
-    public abstract class HttpContextMoverCodeFixProvider : CodeFixProvider
+    public abstract class HttpContextMoverCodeFixProvider<TInvocationNode, TArgument> : CodeFixProvider
+        where TInvocationNode : SyntaxNode
+        where TArgument : SyntaxNode
     {
         public sealed override ImmutableArray<string> FixableDiagnosticIds
         {
@@ -196,7 +198,15 @@ namespace HttpContextMover
                     continue;
                 }
 
-                ReplaceMethod(semanticModel, callerNode, editor, property);
+                var invocationNode = GetInvocationExpression(callerNode);
+
+                if (invocationNode is not null)
+                {
+                    var argument = GetParameter(semanticModel, property, editor, invocationNode, token);
+                    var newInvocation = AddArgumentToInvocation(invocationNode, (TArgument)argument);
+
+                    editor.ReplaceNode(invocationNode, newInvocation);
+                }
             }
         }
 
@@ -236,7 +246,10 @@ namespace HttpContextMover
             return editor.Generator.Argument(expression);
         }
 
-        protected abstract void ReplaceMethod(SemanticModel semanticModel, SyntaxNode callerNode, SyntaxEditor editor, IPropertySymbol property);
+        private TInvocationNode? GetInvocationExpression(SyntaxNode callerNode)
+            => callerNode.FirstAncestorOrSelf<TInvocationNode>();
+
+        protected abstract TInvocationNode AddArgumentToInvocation(TInvocationNode invocationNode, TArgument argument);
 
         protected abstract bool IsEnclosedMethodOperation(IOperation operation);
 
