@@ -6,7 +6,7 @@ using System.Threading.Tasks;
 
 using VerifyCS = HttpContextMover.Test.CSharpCodeFixVerifier<
     HttpContextMover.HttpContextMoverAnalyzer,
-    HttpContextMover.HttpContextMoverCodeFixProvider>;
+    HttpContextMover.CSharpHttpContextMoverCodeFixProvider>;
 
 namespace HttpContextMover.Test
 {

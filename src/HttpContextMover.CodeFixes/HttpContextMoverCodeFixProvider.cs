@@ -1,12 +1,10 @@
 ﻿using Microsoft.CodeAnalysis;
 using Microsoft.CodeAnalysis.CodeActions;
 using Microsoft.CodeAnalysis.CodeFixes;
-using Microsoft.CodeAnalysis.VisualBasic.Syntax;
 using Microsoft.CodeAnalysis.Editing;
 using Microsoft.CodeAnalysis.FindSymbols;
 using Microsoft.CodeAnalysis.Operations;
 using System.Collections.Immutable;
-using System.Composition;
 using System.Diagnostics.CodeAnalysis;
 using System.Linq;
 using System.Threading;
@@ -14,8 +12,7 @@ using System.Threading.Tasks;
 
 namespace HttpContextMover
 {
-    [ExportCodeFixProvider(LanguageNames.CSharp, Name = nameof(HttpContextMoverCodeFixProvider)), Shared]
-    public class HttpContextMoverCodeFixProvider : CodeFixProvider
+    public abstract class HttpContextMoverCodeFixProvider : CodeFixProvider
     {
         public sealed override ImmutableArray<string> FixableDiagnosticIds
         {
@@ -90,7 +87,6 @@ namespace HttpContextMover
             var slnEditor = new SolutionEditor(document.Project.Solution);
             var editor = await slnEditor.GetDocumentEditorAsync(document.Id, cancellationToken);
 
-#if false
             // Add parameter if not available
             var parameter = await AddMethodParameter(editor, document, methodOperation, propertyOperation, cancellationToken);
 
@@ -100,7 +96,8 @@ namespace HttpContextMover
             }
 
             // Update node usage
-            var name = editor.Generator.IdentifierName(parameter.Identifier.Text);
+            var text = editor.Generator.GetName(parameter);
+            var name = editor.Generator.IdentifierName(text);
 
             editor.ReplaceNode(propertyOperation.Syntax, name);
 
@@ -108,13 +105,11 @@ namespace HttpContextMover
             {
                 await UpdateCallers(methodSymbol, propertyOperation.Property, slnEditor, cancellationToken);
             }
-#endif
 
             return slnEditor.GetChangedSolution();
         }
 
-#if false
-        private async Task<ParameterSyntax?> AddMethodParameter(DocumentEditor editor, Document document, IMethodBodyOperation methodOperation, IPropertyReferenceOperation propertyOperation, CancellationToken token)
+        private async Task<SyntaxNode?> AddMethodParameter(DocumentEditor editor, Document document, IMethodBodyOperation methodOperation, IPropertyReferenceOperation propertyOperation, CancellationToken token)
         {
             // Get the symbol representing the type to be renamed.
             var semanticModel = await document.GetSemanticModelAsync(token);
@@ -124,31 +119,44 @@ namespace HttpContextMover
                 return default;
             }
 
-            var methodDecl = (Microsoft.CodeAnalysis.VisualBasic.Syntax.MethodStatementSyntax)methodOperation.Syntax;
-            var parameter = methodDecl.ParameterList.Parameters.FirstOrDefault(p =>
+            var symbol = semanticModel.GetDeclaredSymbol(methodOperation.Syntax, token);
+
+            if (symbol is not IMethodSymbol method)
+            {
+                return null;
+            }
+
+            var parameter = method.Parameters.FirstOrDefault(p =>
             {
                 if (p.Type is null)
                 {
                     return false;
                 }
 
-                var symbol = semanticModel.GetSymbolInfo(p.Type);
-
-                return SymbolEqualityComparer.IncludeNullability.Equals(symbol.Symbol, propertyOperation.Property.Type);
+                return SymbolEqualityComparer.IncludeNullability.Equals(p.Type, propertyOperation.Property.Type);
             });
+
+            if (parameter is not null && !parameter.DeclaringSyntaxReferences.IsEmpty)
+            {
+                return parameter.DeclaringSyntaxReferences[0].GetSyntax(token);
+            }
 
             var propertyTypeSyntaxNode = editor.Generator.NameExpression(propertyOperation.Property.Type);
 
             if (parameter is null)
             {
-                var ps = editor.Generator.GetParameters(methodDecl);
-                var current = editor.Generator.IdentifierName("currentContext");
-                parameter = (ParameterSyntax)editor.Generator.ParameterDeclaration("currentContext", propertyTypeSyntaxNode);
+                const string CurrentContextName = "currentContext";
 
-                editor.AddParameter(methodDecl, parameter);
+                var ps = editor.Generator.GetParameters(methodOperation.Syntax);
+                var current = editor.Generator.IdentifierName(CurrentContextName);
+                var p = editor.Generator.ParameterDeclaration(CurrentContextName, propertyTypeSyntaxNode);
+
+                editor.AddParameter(methodOperation.Syntax, p);
+
+                return p;
             }
 
-            return parameter;
+            return null;
         }
 
         private async Task UpdateCallers(ISymbol methodSymbol, IPropertySymbol property, SolutionEditor slnEditor, CancellationToken token)
@@ -185,21 +193,11 @@ namespace HttpContextMover
                     continue;
                 }
 
-                var invocationExpression = callerNode.FirstAncestorOrSelf<InvocationExpressionSyntax>();
-
-                if (invocationExpression is null)
-                {
-                    continue;
-                }
-
-                var httpContextType = editor.Generator.NameExpression(property.Type);
-                var expression = editor.Generator.MemberAccessExpression(httpContextType, "Current");
-                var httpContextCurrentArg = (ArgumentSyntax)editor.Generator.Argument(expression);
-                var argList = invocationExpression.ArgumentList.AddArguments(httpContextCurrentArg);
-
-                editor.ReplaceNode(invocationExpression, invocationExpression.WithArgumentList(argList));
+                ReplaceMethod(callerNode, editor, property);
             }
         }
+
+        protected abstract void ReplaceMethod(SyntaxNode callerNode, SyntaxEditor editor, IPropertySymbol property);
 
         private bool TryGetDocument(Solution sln, SyntaxTree? tree, CancellationToken token, [MaybeNullWhen(false)] out Document document)
         {
@@ -223,6 +221,5 @@ namespace HttpContextMover
             document = null;
             return false;
         }
-#endif
     }
 }

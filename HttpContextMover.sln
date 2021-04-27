@@ -27,6 +27,8 @@ Project("{9A19103F-16F7-4668-BE54-9A1E7A4F7556}") = "HttpContextMover.CodeFixes.
 EndProject
 Project("{9A19103F-16F7-4668-BE54-9A1E7A4F7556}") = "HttpContextMover.CodeFixes.VisualBasic", "src\HttpContextMover.CodeFixes.VisualBasic\HttpContextMover.CodeFixes.VisualBasic.csproj", "{87BA1C66-16EF-4D6B-86EF-82D28420035C}"
 EndProject
+Project("{9A19103F-16F7-4668-BE54-9A1E7A4F7556}") = "HttpContextMover.CodeFixes", "src\HttpContextMover.CodeFixes\HttpContextMover.CodeFixes.csproj", "{7D678B98-7BCB-4A44-914F-11D423FA552B}"
+EndProject
 Global
 	GlobalSection(SolutionConfigurationPlatforms) = preSolution
 		Debug|Any CPU = Debug|Any CPU
@@ -57,6 +59,10 @@ Global
 		{87BA1C66-16EF-4D6B-86EF-82D28420035C}.Debug|Any CPU.Build.0 = Debug|Any CPU
 		{87BA1C66-16EF-4D6B-86EF-82D28420035C}.Release|Any CPU.ActiveCfg = Release|Any CPU
 		{87BA1C66-16EF-4D6B-86EF-82D28420035C}.Release|Any CPU.Build.0 = Release|Any CPU
+		{7D678B98-7BCB-4A44-914F-11D423FA552B}.Debug|Any CPU.ActiveCfg = Debug|Any CPU
+		{7D678B98-7BCB-4A44-914F-11D423FA552B}.Debug|Any CPU.Build.0 = Debug|Any CPU
+		{7D678B98-7BCB-4A44-914F-11D423FA552B}.Release|Any CPU.ActiveCfg = Release|Any CPU
+		{7D678B98-7BCB-4A44-914F-11D423FA552B}.Release|Any CPU.Build.0 = Release|Any CPU
 	EndGlobalSection
 	GlobalSection(SolutionProperties) = preSolution
 		HideSolutionNode = FALSE
@@ -68,6 +74,7 @@ Global
 		{878394BC-0FB0-46A2-91F3-3F745A462D2D} = {A3E0F262-145A-4CDA-9777-9A6929219743}
 		{A4609A95-F266-4F28-80A4-A1E8A25CA787} = {A3E0F262-145A-4CDA-9777-9A6929219743}
 		{87BA1C66-16EF-4D6B-86EF-82D28420035C} = {A3E0F262-145A-4CDA-9777-9A6929219743}
+		{7D678B98-7BCB-4A44-914F-11D423FA552B} = {A3E0F262-145A-4CDA-9777-9A6929219743}
 	EndGlobalSection
 	GlobalSection(ExtensibilityGlobals) = postSolution
 		SolutionGuid = {55202CD5-7E85-453E-A882-45D1B3FD9C78}
