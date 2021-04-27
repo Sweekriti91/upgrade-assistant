@@ -42,9 +42,7 @@ namespace HttpContextMover
                     return;
                 }
 
-                var type = property.Type.ToDisplayString(SymbolDisplayFormat.FullyQualifiedFormat);
-
-                if (!type.Equals("global::System.Web.HttpContext", StringComparison.Ordinal))
+                if (property.Type.EqualsTypeParts("System", "Web", "HttpContext"))
                 {
                     return;
                 }

@@ -4,6 +4,7 @@ using Microsoft.CodeAnalysis.Diagnostics;
 using Microsoft.CodeAnalysis.Testing;
 using Microsoft.CodeAnalysis.Testing.Verifiers;
 using Microsoft.CodeAnalysis.VisualBasic.Testing;
+using System.Collections.Immutable;
 using System.Threading;
 using System.Threading.Tasks;
 
@@ -46,13 +47,20 @@ namespace HttpContextMover.Test
             => await VerifyCodeFixAsync(source, new[] { expected }, fixedSource);
 
         /// <inheritdoc cref="CodeFixVerifier{TAnalyzer, TCodeFix, TTest, TVerifier}.VerifyCodeFixAsync(string, DiagnosticResult[], string)"/>
-        public static async Task VerifyCodeFixAsync(string source, DiagnosticResult[] expected, string fixedSource)
+        public static async Task VerifyCodeFixAsync(string source, DiagnosticResult[] expected, string fixedSource, DiagnosticResult[] expectedAfter = null)
         {
             var test = new Test
             {
                 TestCode = source,
                 FixedCode = fixedSource,
+                ReferenceAssemblies = ReferenceAssemblies.NetFramework.Net45.Default.AddAssemblies(ImmutableArray.Create("System.Web")),
+                CodeFixTestBehaviors = CodeFixTestBehaviors.FixOne,
             };
+
+            if (expectedAfter is not null)
+            {
+                test.FixedState.ExpectedDiagnostics.AddRange(expectedAfter);
+            }
 
             test.ExpectedDiagnostics.AddRange(expected);
             await test.RunAsync(CancellationToken.None);
