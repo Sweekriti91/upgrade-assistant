@@ -17,6 +17,8 @@ namespace HttpContextMover
         where TInvocationNode : SyntaxNode
         where TArgument : SyntaxNode
     {
+        const string DefaultCurrentContextName = "currentContext";
+
         public sealed override ImmutableArray<string> FixableDiagnosticIds
         {
             get { return ImmutableArray.Create(HttpContextMoverAnalyzer.DiagnosticId); }
@@ -27,6 +29,11 @@ namespace HttpContextMover
             // See https://github.com/dotnet/roslyn/blob/master/docs/analyzers/FixAllProvider.md for more information on Fix All Providers
             return WellKnownFixAllProviders.BatchFixer;
         }
+
+        protected abstract TInvocationNode AddArgumentToInvocation(TInvocationNode invocationNode, TArgument argument);
+
+        protected abstract bool IsEnclosedMethodOperation(IOperation operation);
+
 
         public sealed override async Task RegisterCodeFixesAsync(CodeFixContext context)
         {
@@ -64,27 +71,12 @@ namespace HttpContextMover
             context.RegisterCodeFix(
                 CodeAction.Create(
                     title: CodeFixResources.HttpContextPassthroughCodeFixer,
-                    createChangedSolution: c => MakePassHttpContextThrough(context.Document, methodOperation, property, c),
+                    createChangedSolution: c => InjectHttpContext(context.Document, methodOperation, property, c),
                     equivalenceKey: nameof(CodeFixResources.HttpContextPassthroughCodeFixer)),
                 diagnostic);
         }
 
-        protected IOperation? GetEnclosingMethodOperation(IOperation? operation)
-        {
-            while (operation is not null)
-            {
-                if (IsEnclosedMethodOperation(operation))
-                {
-                    return operation;
-                }
-
-                operation = operation.Parent;
-            }
-
-            return default;
-        }
-
-        private async Task<Solution> MakePassHttpContextThrough(Document document, IOperation methodOperation, IPropertyReferenceOperation propertyOperation, CancellationToken cancellationToken)
+        private async Task<Solution> InjectHttpContext(Document document, IOperation methodOperation, IPropertyReferenceOperation propertyOperation, CancellationToken cancellationToken)
         {
             var slnEditor = new SolutionEditor(document.Project.Solution);
             var editor = await slnEditor.GetDocumentEditorAsync(document.Id, cancellationToken);
@@ -109,6 +101,21 @@ namespace HttpContextMover
             }
 
             return slnEditor.GetChangedSolution();
+        }
+
+        private IOperation? GetEnclosingMethodOperation(IOperation? operation)
+        {
+            while (operation is not null)
+            {
+                if (IsEnclosedMethodOperation(operation))
+                {
+                    return operation;
+                }
+
+                operation = operation.Parent;
+            }
+
+            return default;
         }
 
         private IParameterSymbol? GetExistingParameterSymbol(SemanticModel semanticModel, ITypeSymbol? type, IOperation operation, CancellationToken token)
@@ -155,9 +162,7 @@ namespace HttpContextMover
 
             var propertyTypeSyntaxNode = editor.Generator.NameExpression(propertyOperation.Property.Type);
 
-            const string CurrentContextName = "currentContext";
-
-            var p = editor.Generator.ParameterDeclaration(CurrentContextName, propertyTypeSyntaxNode);
+            var p = editor.Generator.ParameterDeclaration(DefaultCurrentContextName, propertyTypeSyntaxNode);
 
             editor.AddParameter(methodOperation.Syntax, p);
 
@@ -210,7 +215,7 @@ namespace HttpContextMover
             }
         }
 
-        protected string? GetEnclosingMethodParameterName(SemanticModel semanticModel, ITypeSymbol type, SyntaxNode node, CancellationToken token)
+        private string? GetEnclosingMethodParameterName(SemanticModel semanticModel, ITypeSymbol type, SyntaxNode node, CancellationToken token)
         {
             var operation = semanticModel.GetOperation(node);
 
@@ -231,7 +236,7 @@ namespace HttpContextMover
             return parameter?.Name;
         }
 
-        protected SyntaxNode GetParameter(SemanticModel model, IPropertySymbol property, SyntaxEditor editor, SyntaxNode invocation, CancellationToken token)
+        private SyntaxNode GetParameter(SemanticModel model, IPropertySymbol property, SyntaxEditor editor, SyntaxNode invocation, CancellationToken token)
         {
             var name = GetEnclosingMethodParameterName(model, property.Type, invocation, token);
 
@@ -248,10 +253,6 @@ namespace HttpContextMover
 
         private TInvocationNode? GetInvocationExpression(SyntaxNode callerNode)
             => callerNode.FirstAncestorOrSelf<TInvocationNode>();
-
-        protected abstract TInvocationNode AddArgumentToInvocation(TInvocationNode invocationNode, TArgument argument);
-
-        protected abstract bool IsEnclosedMethodOperation(IOperation operation);
 
         private bool TryGetDocument(Solution sln, SyntaxTree? tree, CancellationToken token, [MaybeNullWhen(false)] out Document document)
         {
