@@ -1,4 +1,7 @@
-﻿using System.Threading.Tasks;
+﻿using Microsoft.CodeAnalysis.Testing;
+using System.Collections.Immutable;
+using System.Threading;
+using System.Threading.Tasks;
 using Xunit;
 
 using VerifyVB = HttpContextMover.Test.VisualBasicCodeFixVerifier<
@@ -162,54 +165,51 @@ namespace HttpContextMover.Test
             await VerifyVB.VerifyCodeFixAsync(test, expected1, test, expected1);
         }
 
-#if FALSEdd
         [Fact]
         public async Task MultipleFiles()
         {
             var test1 = @"
-    using System.Web;
+    Imports System.Web
 
-    namespace ConsoleApplication1
-    {
-        public class Program
-        {
-            public static object Instance() => {|#0:HttpContext.Current|};
-        }
-    }";
+    Namespace ConsoleApplication1
+        Class Program
+            Public Shared Function Instance() As HttpContext
+                Return {|#0:HttpContext.Current|}
+            End Function
+        End Class
+    End Namespace";
             var test2 = @"
-    using System.Web;
-
-    namespace ConsoleApplication1
-    {
-        class Program2
-        {
-            public object Instance() => Program.Instance();
-        }
-    }";
+    Imports System.Web
+    Namespace ConsoleApplication1
+        Class Program2
+            Public Function Test2() As HttpContext
+                Return Program.Instance()
+            End Function
+        End Class
+    End Namespace";
 
             var fix1 = @"
-    using System.Web;
+    Imports System.Web
 
-    namespace ConsoleApplication1
-    {
-        public class Program
-        {
-            public static object Instance(HttpContext currentContext) => currentContext;
-        }
-    }";
+    Namespace ConsoleApplication1
+        Class Program
+            Public Shared Function Instance(currentContext As HttpContext) As HttpContext
+                Return currentContext
+        End Function
+        End Class
+    End Namespace";
             var fix2 = @"
-    using System.Web;
+    Imports System.Web
+    Namespace ConsoleApplication1
+        Class Program2
+            Public Function Test2() As HttpContext
+                Return Program.Instance({|#0:HttpContext.Current|})
+            End Function
+        End Class
+    End Namespace";
+            var expected = VerifyVB.Diagnostic("HttpContextMover").WithLocation(0);
 
-    namespace ConsoleApplication1
-    {
-        class Program2
-        {
-            public object Instance() => Program.Instance({|#0:HttpContext.Current|});
-        }
-    }";
-            var expected = VerifyCS.Diagnostic("HttpContextMover").WithLocation(0);
-
-            var test = new VerifyCS.Test
+            var test = new VerifyVB.Test
             {
                 ReferenceAssemblies = ReferenceAssemblies.NetFramework.Net45.Default.AddAssemblies(ImmutableArray.Create("System.Web")),
                 CodeFixTestBehaviors = CodeFixTestBehaviors.FixOne,
@@ -228,48 +228,48 @@ namespace HttpContextMover.Test
         }
 
         [Fact]
-        public async Task MultipleFilesNoSystemWebUsing()
+        public async Task MultipleFilesNoSystemWebImport()
         {
             var test1 = @"
-    using System.Web;
+    Imports System.Web
 
-    namespace ConsoleApplication1
-    {
-        public class Program
-        {
-            public static object Instance() => {|#0:HttpContext.Current|};
-        }
-    }";
+    Namespace ConsoleApplication1
+        Class Program
+            Public Shared Function Instance() As Object
+                Return {|#0:HttpContext.Current|}
+            End Function
+        End Class
+    End Namespace";
             var test2 = @"
-    namespace ConsoleApplication1
-    {
-        class Program2
-        {
-            public object Instance() => Program.Instance();
-        }
-    }";
+    Namespace ConsoleApplication1
+        Class Program2
+            Public Function Test2() As Object
+                Return Program.Instance()
+            End Function
+        End Class
+    End Namespace";
 
             var fix1 = @"
-    using System.Web;
+    Imports System.Web
 
-    namespace ConsoleApplication1
-    {
-        public class Program
-        {
-            public static object Instance(HttpContext currentContext) => currentContext;
-        }
-    }";
+    Namespace ConsoleApplication1
+        Class Program
+            Public Shared Function Instance(currentContext As HttpContext) As Object
+                Return currentContext
+        End Function
+        End Class
+    End Namespace";
             var fix2 = @"
-    namespace ConsoleApplication1
-    {
-        class Program2
-        {
-            public object Instance() => Program.Instance({|#0:System.Web.HttpContext.Current|});
-        }
-    }";
-            var expected = VerifyCS.Diagnostic("HttpContextMover").WithLocation(0);
+    Namespace ConsoleApplication1
+        Class Program2
+            Public Function Test2() As Object
+                Return Program.Instance({|#0:System.Web.HttpContext.Current|})
+            End Function
+        End Class
+    End Namespace";
+            var expected = VerifyVB.Diagnostic("HttpContextMover").WithLocation(0);
 
-            var test = new VerifyCS.Test
+            var test = new VerifyVB.Test
             {
                 ReferenceAssemblies = ReferenceAssemblies.NetFramework.Net45.Default.AddAssemblies(ImmutableArray.Create("System.Web")),
                 CodeFixTestBehaviors = CodeFixTestBehaviors.FixOne,
@@ -289,6 +289,5 @@ namespace HttpContextMover.Test
 
             await test.RunAsync(CancellationToken.None);
         }
-#endif
     }
 }
