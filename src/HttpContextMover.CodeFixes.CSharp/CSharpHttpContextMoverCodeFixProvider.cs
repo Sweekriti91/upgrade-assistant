@@ -10,7 +10,7 @@ namespace HttpContextMover
     [ExportCodeFixProvider(LanguageNames.CSharp, Name = nameof(CSharpHttpContextMoverCodeFixProvider)), Shared]
     public class CSharpHttpContextMoverCodeFixProvider : HttpContextMoverCodeFixProvider
     {
-        protected override bool OperationApplies(IOperation operation)
+        protected override bool IsEnclosedMethodOperation(IOperation operation)
             => operation is IMethodBodyOperation;
 
         protected override void ReplaceMethod(SyntaxNode callerNode, SyntaxEditor editor, IPropertySymbol property)

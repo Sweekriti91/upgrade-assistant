@@ -50,7 +50,7 @@ namespace HttpContextMover
                 return;
             }
 
-            var methodOperation = GetParent(property);
+            var methodOperation = GetEnclosingMethodOperation(property);
 
             if (methodOperation is null)
             {
@@ -66,11 +66,11 @@ namespace HttpContextMover
                 diagnostic);
         }
 
-        private IOperation? GetParent(IOperation? operation)
+        private IOperation? GetEnclosingMethodOperation(IOperation? operation)
         {
             while (operation is not null)
             {
-                if (OperationApplies(operation))
+                if (IsEnclosedMethodOperation(operation))
                 {
                     return operation;
                 }
@@ -198,7 +198,7 @@ namespace HttpContextMover
 
         protected abstract void ReplaceMethod(SyntaxNode callerNode, SyntaxEditor editor, IPropertySymbol property);
 
-        protected abstract bool OperationApplies(IOperation operation);
+        protected abstract bool IsEnclosedMethodOperation(IOperation operation);
 
         private bool TryGetDocument(Solution sln, SyntaxTree? tree, CancellationToken token, [MaybeNullWhen(false)] out Document document)
         {
