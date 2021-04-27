@@ -1,8 +1,8 @@
 ﻿using Microsoft.CodeAnalysis.Testing;
-using Microsoft.VisualStudio.TestTools.UnitTesting;
 using System.Collections.Immutable;
 using System.Threading;
 using System.Threading.Tasks;
+using Xunit;
 
 using VerifyCS = HttpContextMover.Test.CSharpCodeFixVerifier<
     HttpContextMover.HttpContextMoverAnalyzer,
@@ -10,10 +10,9 @@ using VerifyCS = HttpContextMover.Test.CSharpCodeFixVerifier<
 
 namespace HttpContextMover.Test
 {
-    [TestClass]
     public class HttpContextMoverUnitTest
     {
-        [TestMethod]
+        [Fact]
         public async Task EmptyCode()
         {
             var test = @"";
@@ -21,7 +20,7 @@ namespace HttpContextMover.Test
             await VerifyCS.VerifyAnalyzerAsync(test);
         }
 
-        [TestMethod]
+        [Fact]
         public async Task SimpleUse()
         {
             var test = @"
@@ -55,7 +54,7 @@ namespace HttpContextMover.Test
             await VerifyCS.VerifyCodeFixAsync(test, expected, fixtest);
         }
 
-        [TestMethod]
+        [Fact]
         public async Task ExpressionBody()
         {
             var test = @"
@@ -83,7 +82,7 @@ namespace HttpContextMover.Test
             await VerifyCS.VerifyCodeFixAsync(test, expected, fixtest);
         }
 
-        [TestMethod]
+        [Fact]
         public async Task ReuseArgument()
         {
             var test = @"
@@ -117,7 +116,7 @@ namespace HttpContextMover.Test
             await VerifyCS.VerifyCodeFixAsync(test, expected, fixtest);
         }
 
-        [TestMethod]
+        [Fact]
         public async Task InArgument()
         {
             var test = @"
@@ -151,7 +150,7 @@ namespace HttpContextMover.Test
             await VerifyCS.VerifyCodeFixAsync(test, expected, fixtest);
         }
 
-        [TestMethod]
+        [Fact]
         public async Task ReplaceCallerInSameDocument()
         {
             var test = @"
@@ -197,7 +196,7 @@ namespace HttpContextMover.Test
             await VerifyCS.VerifyCodeFixAsync(test, expected1, fixtest, expected2);
         }
 
-        [TestMethod]
+        [Fact]
         public async Task InProperty()
         {
             var test = @"
@@ -216,7 +215,7 @@ namespace HttpContextMover.Test
             await VerifyCS.VerifyCodeFixAsync(test, expected1, test, expected1);
         }
 
-        [TestMethod]
+        [Fact]
         public async Task MultipleFiles()
         {
             var test1 = @"
@@ -280,7 +279,7 @@ namespace HttpContextMover.Test
             await test.RunAsync(CancellationToken.None);
         }
 
-        [TestMethod]
+        [Fact]
         public async Task MultipleFilesNoSystemWebUsing()
         {
             var test1 = @"
