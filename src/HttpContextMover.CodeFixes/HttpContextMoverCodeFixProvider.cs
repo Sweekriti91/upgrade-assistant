@@ -66,15 +66,11 @@ namespace HttpContextMover
                 diagnostic);
         }
 
-        private static IOperation? GetParent(IOperation? operation)
+        private IOperation? GetParent(IOperation? operation)
         {
             while (operation is not null)
             {
-                if (operation.Language == LanguageNames.VisualBasic && operation is IBlockOperation)
-                {
-                    return operation;
-                }
-                else if (operation.Language == LanguageNames.CSharp && operation is IMethodBodyOperation)
+                if (OperationApplies(operation))
                 {
                     return operation;
                 }
@@ -201,6 +197,8 @@ namespace HttpContextMover
         }
 
         protected abstract void ReplaceMethod(SyntaxNode callerNode, SyntaxEditor editor, IPropertySymbol property);
+
+        protected abstract bool OperationApplies(IOperation operation);
 
         private bool TryGetDocument(Solution sln, SyntaxTree? tree, CancellationToken token, [MaybeNullWhen(false)] out Document document)
         {

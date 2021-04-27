@@ -3,12 +3,16 @@ using Microsoft.CodeAnalysis.CodeFixes;
 using Microsoft.CodeAnalysis.VisualBasic.Syntax;
 using Microsoft.CodeAnalysis.Editing;
 using System.Composition;
+using Microsoft.CodeAnalysis.Operations;
 
 namespace HttpContextMover
 {
     [ExportCodeFixProvider(LanguageNames.VisualBasic, Name = nameof(VisualBasicHttpContextMoverCodeFixProvider)), Shared]
     public class VisualBasicHttpContextMoverCodeFixProvider : HttpContextMoverCodeFixProvider
     {
+        protected override bool OperationApplies(IOperation operation)
+            => operation is IBlockOperation && operation.Syntax is MethodBlockSyntax;
+
         protected override void ReplaceMethod(SyntaxNode callerNode, SyntaxEditor editor, IPropertySymbol property)
         {
             var invocationExpression = callerNode.FirstAncestorOrSelf<InvocationExpressionSyntax>();

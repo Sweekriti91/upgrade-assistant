@@ -105,72 +105,64 @@ namespace HttpContextMover.Test
             await VerifyVB.VerifyCodeFixAsync(test, expected, fixtest);
         }
 
-#if FALSE
         [Fact]
         public async Task ReplaceCallerInSameDocument()
         {
             var test = @"
-    using System.Web;
+    Imports System.Web
 
-    namespace ConsoleApplication1
-    {
-        class Program
-        {
-            public void Test()
-            {
-                _ = {|#0:HttpContext.Current|};
-            }
-
-            public void Test2()
-            {
-                Test();
-            }
-        }
-    }";
+    Namespace ConsoleApplication1
+        Class Program
+            Public Sub Test()
+                Dim c = {|#0:HttpContext.Current|}
+            End Sub
+            Public Sub Test2()
+                Test()
+            End Sub
+        End Class
+    End Namespace";
             var fixtest = @"
-    using System.Web;
+    Imports System.Web
 
-    namespace ConsoleApplication1
-    {
-        class Program
-        {
-            public void Test(HttpContext currentContext)
-            {
-                _ = currentContext;
-            }
+    Namespace ConsoleApplication1
+        Class Program
+            Public Sub Test(currentContext As HttpContext)
+                Dim c = currentContext
+        End Sub
+            Public Sub Test2()
+                Test({|#0:HttpContext.Current|})
+            End Sub
+        End Class
+    End Namespace";
 
-            public void Test2()
-            {
-                Test({|#0:HttpContext.Current|});
-            }
-        }
-    }";
+            var expected1 = VerifyVB.Diagnostic("HttpContextMover").WithLocation(0);
+            var expected2 = VerifyVB.Diagnostic().WithLocation(0);
 
-            var expected1 = VerifyCS.Diagnostic("HttpContextMover").WithLocation(0);
-            var expected2 = VerifyCS.Diagnostic().WithLocation(0);
-
-            await VerifyCS.VerifyCodeFixAsync(test, expected1, fixtest, expected2);
+            await VerifyVB.VerifyCodeFixAsync(test, expected1, fixtest, expected2);
         }
 
         [Fact]
         public async Task InProperty()
         {
             var test = @"
-    using System.Web;
+    Imports System.Web
 
-    namespace ConsoleApplication1
-    {
-        class Program
-        {
-            public object Instance => {|#0:HttpContext.Current|};
+    Namespace ConsoleApplication1
+        Class Program
+            Public ReadOnly Property Test As HttpContext
+                Get
+                    Return {|#0:HttpContext.Current|}
+            End Get
+            End Property
+        End Class
+    End Namespace";
+
+            var expected1 = VerifyVB.Diagnostic("HttpContextMover").WithLocation(0);
+
+            await VerifyVB.VerifyCodeFixAsync(test, expected1, test, expected1);
         }
-    }";
 
-            var expected1 = VerifyCS.Diagnostic("HttpContextMover").WithLocation(0);
-
-            await VerifyCS.VerifyCodeFixAsync(test, expected1, test, expected1);
-        }
-
+#if FALSEdd
         [Fact]
         public async Task MultipleFiles()
         {
