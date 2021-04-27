@@ -196,20 +196,25 @@ namespace HttpContextMover
                     continue;
                 }
 
-                var invocationExpression = callerNode.FirstAncestorOrSelf<InvocationExpressionSyntax>();
-
-                if (invocationExpression is null)
-                {
-                    continue;
-                }
-
-                var httpContextType = editor.Generator.NameExpression(property.Type);
-                var expression = editor.Generator.MemberAccessExpression(httpContextType, "Current");
-                var httpContextCurrentArg = (ArgumentSyntax)editor.Generator.Argument(expression);
-                var argList = invocationExpression.ArgumentList.AddArguments(httpContextCurrentArg);
-
-                editor.ReplaceNode(invocationExpression, invocationExpression.WithArgumentList(argList));
+                ReplaceMethod(callerNode, editor, property);
             }
+        }
+
+        private void ReplaceMethod(SyntaxNode callerNode, SyntaxEditor editor, IPropertySymbol property)
+        {
+            var invocationExpression = callerNode.FirstAncestorOrSelf<InvocationExpressionSyntax>();
+
+            if (invocationExpression is null)
+            {
+                return;
+            }
+
+            var httpContextType = editor.Generator.NameExpression(property.Type);
+            var expression = editor.Generator.MemberAccessExpression(httpContextType, "Current");
+            var httpContextCurrentArg = (ArgumentSyntax)editor.Generator.Argument(expression);
+            var argList = invocationExpression.ArgumentList.AddArguments(httpContextCurrentArg);
+
+            editor.ReplaceNode(invocationExpression, invocationExpression.WithArgumentList(argList));
         }
 
         private bool TryGetDocument(Solution sln, SyntaxTree? tree, CancellationToken token, [MaybeNullWhen(false)] out Document document)
