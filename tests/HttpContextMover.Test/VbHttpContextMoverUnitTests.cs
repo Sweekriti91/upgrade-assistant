@@ -37,7 +37,7 @@ namespace HttpContextMover.Test
         Class Program
             Public  Sub Test(currentContext As HttpContext)
                 Dim c = currentContext
-            End Sub
+        End Sub
         End Class
     End Namespace";
 
@@ -54,7 +54,7 @@ namespace HttpContextMover.Test
     Namespace ConsoleApplication1
         Class Program
             Public  Sub Test(currentContext As HttpContext)
-                _ = {|#0:HttpContext.Current|}
+                Dim c = {|#0:HttpContext.Current|}
             End Sub
         End Class
     End Namespace";
@@ -64,49 +64,48 @@ namespace HttpContextMover.Test
     Namespace ConsoleApplication1
         Class Program
             Public  Sub Test(currentContext As HttpContext)
-                _ = currentContext
-            End Sub
+                Dim c = currentContext
+        End Sub
         End Class
     End Namespace";
 
             var expected = VerifyVB.Diagnostic("HttpContextMover").WithLocation(0);
             await VerifyVB.VerifyCodeFixAsync(test, expected, fixtest);
         }
-#if FALSE
+
         [Fact]
         public async Task InArgument()
         {
             var test = @"
-    using System.Web;
+    Imports System.Web
 
-    namespace ConsoleApp1
-    {
-        public class Program
-        {
-            private static void Test(HttpContext currentContext)
-            {
-            }
-            public static void Test2() => Test({|#0:HttpContext.Current|});
-        }
-    }";
+    Namespace ConsoleApplication1
+        Class Program
+            Public Sub Test(currentContext As HttpContext)
+            End Sub
+            Public Function Test2() As HttpContext
+                Return {|#0:HttpContext.Current|}
+            End Function
+        End Class
+    End Namespace";
             var fixtest = @"
-    using System.Web;
+    Imports System.Web
 
-    namespace ConsoleApp1
-    {
-        public class Program
-        {
-            private static void Test(HttpContext currentContext)
-            {
-            }
-            public static void Test2(HttpContext currentContext) => Test(currentContext);
+    Namespace ConsoleApplication1
+        Class Program
+            Public Sub Test(currentContext As HttpContext)
+            End Sub
+            Public Function Test2(currentContext As HttpContext) As HttpContext
+                Return currentContext
+        End Function
+        End Class
+    End Namespace";
+
+            var expected = VerifyVB.Diagnostic("HttpContextMover").WithLocation(0);
+            await VerifyVB.VerifyCodeFixAsync(test, expected, fixtest);
         }
-    }";
 
-            var expected = VerifyCS.Diagnostic("HttpContextMover").WithLocation(0);
-            await VerifyCS.VerifyCodeFixAsync(test, expected, fixtest);
-        }
-
+#if FALSE
         [Fact]
         public async Task ReplaceCallerInSameDocument()
         {

@@ -50,7 +50,7 @@ namespace HttpContextMover
                 return;
             }
 
-            var methodOperation = GetParent<IMethodBodyOperation>(property);
+            var methodOperation = GetParent(property);
 
             if (methodOperation is null)
             {
@@ -66,14 +66,17 @@ namespace HttpContextMover
                 diagnostic);
         }
 
-        private static TOperation? GetParent<TOperation>(IOperation? operation)
-            where TOperation : IOperation
+        private static IOperation? GetParent(IOperation? operation)
         {
             while (operation is not null)
             {
-                if (operation is TOperation t)
+                if (operation.Language == LanguageNames.VisualBasic && operation is IBlockOperation)
                 {
-                    return t;
+                    return operation;
+                }
+                else if (operation.Language == LanguageNames.CSharp && operation is IMethodBodyOperation)
+                {
+                    return operation;
                 }
 
                 operation = operation.Parent;
@@ -82,7 +85,7 @@ namespace HttpContextMover
             return default;
         }
 
-        private async Task<Solution> MakePassHttpContextThrough(Document document, IMethodBodyOperation methodOperation, IPropertyReferenceOperation propertyOperation, CancellationToken cancellationToken)
+        private async Task<Solution> MakePassHttpContextThrough(Document document, IOperation methodOperation, IPropertyReferenceOperation propertyOperation, CancellationToken cancellationToken)
         {
             var slnEditor = new SolutionEditor(document.Project.Solution);
             var editor = await slnEditor.GetDocumentEditorAsync(document.Id, cancellationToken);
@@ -109,7 +112,7 @@ namespace HttpContextMover
             return slnEditor.GetChangedSolution();
         }
 
-        private async Task<SyntaxNode?> AddMethodParameter(DocumentEditor editor, Document document, IMethodBodyOperation methodOperation, IPropertyReferenceOperation propertyOperation, CancellationToken token)
+        private async Task<SyntaxNode?> AddMethodParameter(DocumentEditor editor, Document document, IOperation methodOperation, IPropertyReferenceOperation propertyOperation, CancellationToken token)
         {
             // Get the symbol representing the type to be renamed.
             var semanticModel = await document.GetSemanticModelAsync(token);
