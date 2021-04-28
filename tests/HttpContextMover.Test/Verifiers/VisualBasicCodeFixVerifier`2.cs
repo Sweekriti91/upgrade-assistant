@@ -35,6 +35,8 @@ namespace HttpContextMover.Test
                 TestCode = source,
             };
 
+            test.TestState.AdditionalFiles.AddMappings();
+
             test.ExpectedDiagnostics.AddRange(expected);
             await test.RunAsync(CancellationToken.None);
         }
@@ -68,6 +70,8 @@ namespace HttpContextMover.Test
             {
                 test.FixedState.ExpectedDiagnostics.AddRange(expectedAfter);
             }
+
+            test.TestState.AdditionalFiles.AddMappings();
 
             test.ExpectedDiagnostics.AddRange(expected);
             await test.RunAsync(CancellationToken.None);

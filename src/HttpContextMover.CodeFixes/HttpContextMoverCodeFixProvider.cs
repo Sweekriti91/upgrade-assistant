@@ -17,8 +17,6 @@ namespace HttpContextMover
         where TInvocationNode : SyntaxNode
         where TArgument : SyntaxNode
     {
-        const string DefaultCurrentContextName = "currentContext";
-
         public sealed override ImmutableArray<string> FixableDiagnosticIds
         {
             get { return ImmutableArray.Create(HttpContextMoverAnalyzer.DiagnosticId); }
@@ -67,22 +65,32 @@ namespace HttpContextMover
                 return;
             }
 
+            var info = new MappingInfo
+            {
+                VariableName = diagnostic.Properties[Mapping.DefaultCurrentContextName] ?? "unknown",
+            };
+
             //// Register a code action that will invoke the fix.
             context.RegisterCodeFix(
                 CodeAction.Create(
                     title: CodeFixResources.HttpContextPassthroughCodeFixer,
-                    createChangedSolution: c => InjectHttpContext(context.Document, methodOperation, property, c),
+                    createChangedSolution: c => InjectHttpContext(context.Document, methodOperation, property, info, c),
                     equivalenceKey: nameof(CodeFixResources.HttpContextPassthroughCodeFixer)),
                 diagnostic);
         }
 
-        private async Task<Solution> InjectHttpContext(Document document, IOperation methodOperation, IPropertyReferenceOperation propertyOperation, CancellationToken cancellationToken)
+        private class MappingInfo
+        {
+            public string VariableName { get; set; } = null!;
+        }
+
+        private async Task<Solution> InjectHttpContext(Document document, IOperation methodOperation, IPropertyReferenceOperation propertyOperation, MappingInfo info, CancellationToken cancellationToken)
         {
             var slnEditor = new SolutionEditor(document.Project.Solution);
             var editor = await slnEditor.GetDocumentEditorAsync(document.Id, cancellationToken);
 
             // Add parameter if not available
-            var parameter = await AddMethodParameter(editor, document, methodOperation, propertyOperation, cancellationToken);
+            var parameter = await AddMethodParameter(editor, document, methodOperation, propertyOperation, info, cancellationToken);
 
             if (parameter is null)
             {
@@ -143,7 +151,7 @@ namespace HttpContextMover
             });
         }
 
-        private async Task<SyntaxNode?> AddMethodParameter(DocumentEditor editor, Document document, IOperation methodOperation, IPropertyReferenceOperation propertyOperation, CancellationToken token)
+        private async Task<SyntaxNode?> AddMethodParameter(DocumentEditor editor, Document document, IOperation methodOperation, IPropertyReferenceOperation propertyOperation, MappingInfo info, CancellationToken token)
         {
             // Get the symbol representing the type to be renamed.
             var semanticModel = await document.GetSemanticModelAsync(token);
@@ -162,7 +170,7 @@ namespace HttpContextMover
 
             var propertyTypeSyntaxNode = editor.Generator.NameExpression(propertyOperation.Property.Type);
 
-            var p = editor.Generator.ParameterDeclaration(DefaultCurrentContextName, propertyTypeSyntaxNode);
+            var p = editor.Generator.ParameterDeclaration(info.VariableName, propertyTypeSyntaxNode);
 
             editor.AddParameter(methodOperation.Syntax, p);
 

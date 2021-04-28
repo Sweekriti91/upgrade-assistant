@@ -253,6 +253,7 @@ namespace HttpContextMover.Test
 
             test.TestState.Sources.Add(test1);
             test.TestState.Sources.Add(test2);
+            test.TestState.AdditionalFiles.AddMappings();
 
             test.FixedState.Sources.Add(fix1);
             test.FixedState.Sources.Add(fix2);
@@ -313,6 +314,7 @@ namespace HttpContextMover.Test
 
             test.TestState.Sources.Add(test1);
             test.TestState.Sources.Add(test2);
+            test.TestState.AdditionalFiles.AddMappings();
 
             test.FixedState.Sources.Add(fix1);
             test.FixedState.Sources.Add(fix2);

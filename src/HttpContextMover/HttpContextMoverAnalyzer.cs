@@ -3,6 +3,7 @@ using Microsoft.CodeAnalysis.Diagnostics;
 using Microsoft.CodeAnalysis.Operations;
 using System;
 using System.Collections.Immutable;
+using System.IO;
 
 namespace HttpContextMover
 {
@@ -27,27 +28,48 @@ namespace HttpContextMover
             context.ConfigureGeneratedCodeAnalysis(GeneratedCodeAnalysisFlags.None);
             context.EnableConcurrentExecution();
 
-            context.RegisterOperationAction(ctx =>
+            context.RegisterCompilationStartAction(ctx =>
             {
-                if (ctx.Operation is not IPropertyReferenceOperation propertyReference)
+                var mappings = GetMapping(ctx.Options.AdditionalFiles);
+
+                if (mappings.IsDefaultOrEmpty)
                 {
-                    return;
+                    mappings = Mapping.Default;
                 }
 
-                var property = propertyReference.Property;
-
-                if (!property.Name.Equals("Current", StringComparison.Ordinal))
+                ctx.RegisterOperationAction(ctx =>
                 {
-                    return;
-                }
+                    if (ctx.Operation is not IPropertyReferenceOperation propertyReference)
+                    {
+                        return;
+                    }
 
-                if (property.Type.EqualsTypeParts("System", "Web", "HttpContext"))
+                    foreach (var mapping in mappings)
+                    {
+                        if (mapping.Matches(propertyReference.Property))
+                        {
+                            var diagnostic = Diagnostic.Create(Rule, ctx.Operation.Syntax.GetLocation(), mapping.Properties);
+
+                            ctx.ReportDiagnostic(diagnostic);
+                        }
+                    }
+                }, OperationKind.PropertyReference);
+            });
+        }
+
+        private static ImmutableArray<Mapping> GetMapping(ImmutableArray<AdditionalText> additionalFiles)
+        {
+            const string Name = "StaticDependencyInjection.mapping";
+
+            foreach (var file in additionalFiles)
+            {
+                if (string.Equals(Path.GetFileName(file.Path), Name, StringComparison.OrdinalIgnoreCase))
                 {
-                    return;
+                    return Mapping.Create(file.GetText());
                 }
+            }
 
-                ctx.ReportDiagnostic(Diagnostic.Create(Rule, ctx.Operation.Syntax.GetLocation()));
-            }, OperationKind.PropertyReference);
+            return default;
         }
     }
 }
