@@ -61,29 +61,29 @@ namespace HttpContextMover {
         }
         
         /// <summary>
-        ///   Looks up a localized string similar to HttpContext.Current should not be used. Instead, the properties needed should be passed through via the method invocation. HttpContext.Current is not available in ASP.NET Core..
+        ///   Looks up a localized string similar to This static call should be replaced with injection of the object instead to support better dependency managment..
         /// </summary>
-        internal static string HttpContext1Description {
+        internal static string InjectDescription {
             get {
-                return ResourceManager.GetString("HttpContext1Description", resourceCulture);
+                return ResourceManager.GetString("InjectDescription", resourceCulture);
             }
         }
         
         /// <summary>
-        ///   Looks up a localized string similar to HttpContext.Current should not be used.
+        ///   Looks up a localized string similar to {0} should be injected instead of retrieval via {1}.
         /// </summary>
-        internal static string HttpContext1MessageFormat {
+        internal static string InjectMessageFormat {
             get {
-                return ResourceManager.GetString("HttpContext1MessageFormat", resourceCulture);
+                return ResourceManager.GetString("InjectMessageFormat", resourceCulture);
             }
         }
         
         /// <summary>
-        ///   Looks up a localized string similar to HttpContext.Current should not be used.
+        ///   Looks up a localized string similar to Prefer injection of object instead of static call.
         /// </summary>
-        internal static string HttpContext1Title {
+        internal static string InjectTitle {
             get {
-                return ResourceManager.GetString("HttpContext1Title", resourceCulture);
+                return ResourceManager.GetString("InjectTitle", resourceCulture);
             }
         }
     }

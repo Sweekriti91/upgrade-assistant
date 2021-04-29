@@ -4,4 +4,4 @@
 ### New Rules
 Rule ID | Category | Severity | Notes
 --------|----------|----------|-------
-HttpContextMover | Naming | Warning | HttpContextMoverAnalyzer
+Inject0001 | Architecture | Warning | HttpContextMoverAnalyzer

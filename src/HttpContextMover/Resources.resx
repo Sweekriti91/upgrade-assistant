@@ -117,16 +117,16 @@
   <resheader name="writer">
     <value>System.Resources.ResXResourceWriter, System.Windows.Forms, Version=4.0.0.0, Culture=neutral, PublicKeyToken=b77a5c561934e089</value>
   </resheader>
-  <data name="HttpContext1Description" xml:space="preserve">
-    <value>HttpContext.Current should not be used. Instead, the properties needed should be passed through via the method invocation. HttpContext.Current is not available in ASP.NET Core.</value>
+  <data name="InjectDescription" xml:space="preserve">
+    <value>This static call should be replaced with injection of the object instead to support better dependency managment.</value>
     <comment>An optional longer localizable description of the diagnostic.</comment>
   </data>
-  <data name="HttpContext1MessageFormat" xml:space="preserve">
-    <value>HttpContext.Current should not be used</value>
+  <data name="InjectMessageFormat" xml:space="preserve">
+    <value>{0} should be injected instead of retrieval via {1}</value>
     <comment>The format-able message the diagnostic displays.</comment>
   </data>
-  <data name="HttpContext1Title" xml:space="preserve">
-    <value>HttpContext.Current should not be used</value>
+  <data name="InjectTitle" xml:space="preserve">
+    <value>Prefer injection of object instead of static call</value>
     <comment>The title of the diagnostic.</comment>
   </data>
 </root>

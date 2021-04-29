@@ -10,14 +10,15 @@ namespace HttpContextMover
     [DiagnosticAnalyzer(LanguageNames.CSharp, LanguageNames.VisualBasic)]
     public class HttpContextMoverAnalyzer : DiagnosticAnalyzer
     {
-        public const string DiagnosticId = "HttpContextMover";
+        public const string DiagnosticId = "Inject0001";
 
         // You can change these strings in the Resources.resx file. If you do not want your analyzer to be localize-able, you can use regular strings for Title and MessageFormat.
         // See https://github.com/dotnet/roslyn/blob/master/docs/analyzers/Localizing%20Analyzers.md for more on localization
-        private static readonly LocalizableString Title = new LocalizableResourceString(nameof(Resources.HttpContext1Title), Resources.ResourceManager, typeof(Resources));
-        private static readonly LocalizableString MessageFormat = new LocalizableResourceString(nameof(Resources.HttpContext1MessageFormat), Resources.ResourceManager, typeof(Resources));
-        private static readonly LocalizableString Description = new LocalizableResourceString(nameof(Resources.HttpContext1Description), Resources.ResourceManager, typeof(Resources));
-        private const string Category = "Naming";
+        private static readonly LocalizableString Title = new LocalizableResourceString(nameof(Resources.InjectTitle), Resources.ResourceManager, typeof(Resources));
+        private static readonly LocalizableString MessageFormat = new LocalizableResourceString(nameof(Resources.InjectMessageFormat), Resources.ResourceManager, typeof(Resources));
+        private static readonly LocalizableString Description = new LocalizableResourceString(nameof(Resources.InjectDescription), Resources.ResourceManager, typeof(Resources));
+
+        private const string Category = "Architecture";
 
         private static readonly DiagnosticDescriptor Rule = new DiagnosticDescriptor(DiagnosticId, Title, MessageFormat, Category, DiagnosticSeverity.Warning, isEnabledByDefault: true, description: Description);
 
@@ -48,7 +49,9 @@ namespace HttpContextMover
                     {
                         if (mapping.Matches(propertyReference.Property))
                         {
-                            var diagnostic = Diagnostic.Create(Rule, ctx.Operation.Syntax.GetLocation(), mapping.Properties);
+                            var typeName = propertyReference.Property.Type.ToDisplayString(SymbolDisplayFormat.MinimallyQualifiedFormat);
+                            var propertyName = propertyReference.Property.ToDisplayString(SymbolDisplayFormat.MinimallyQualifiedFormat);
+                            var diagnostic = Diagnostic.Create(Rule, ctx.Operation.Syntax.GetLocation(), mapping.Properties, typeName, propertyName);
 
                             ctx.ReportDiagnostic(diagnostic);
                         }

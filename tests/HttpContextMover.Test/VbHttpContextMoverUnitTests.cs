@@ -12,6 +12,9 @@ namespace HttpContextMover.Test
 {
     public class VbHttpContextMoverUnitTests
     {
+        private const string HttpContextName = "HttpContext";
+        private const string HttpContextCurrentName = "Property HttpContext.Current As HttpContext";
+
         [Fact]
         public async Task EmptyCode()
         {
@@ -44,7 +47,7 @@ namespace HttpContextMover.Test
         End Class
     End Namespace";
 
-            var expected = VerifyVB.Diagnostic("HttpContextMover").WithLocation(0);
+            var expected = VerifyVB.Diagnostic().WithLocation(0).WithArguments(HttpContextName, HttpContextCurrentName);
             await VerifyVB.VerifyCodeFixAsync(test, expected, fixtest);
         }
 
@@ -72,7 +75,7 @@ namespace HttpContextMover.Test
         End Class
     End Namespace";
 
-            var expected = VerifyVB.Diagnostic("HttpContextMover").WithLocation(0);
+            var expected = VerifyVB.Diagnostic().WithLocation(0).WithArguments(HttpContextName, HttpContextCurrentName);
             await VerifyVB.VerifyCodeFixAsync(test, expected, fixtest);
         }
 
@@ -106,7 +109,7 @@ namespace HttpContextMover.Test
         End Class
     End Namespace";
 
-            var expected = VerifyVB.Diagnostic("HttpContextMover").WithLocation(0);
+            var expected = VerifyVB.Diagnostic().WithLocation(0).WithArguments(HttpContextName, HttpContextCurrentName);
             await VerifyVB.VerifyCodeFixAsync(test, expected, fixtest);
         }
 
@@ -138,7 +141,7 @@ namespace HttpContextMover.Test
         End Class
     End Namespace";
 
-            var expected = VerifyVB.Diagnostic("HttpContextMover").WithLocation(0);
+            var expected = VerifyVB.Diagnostic().WithLocation(0).WithArguments(HttpContextName, HttpContextCurrentName);
             await VerifyVB.VerifyCodeFixAsync(test, expected, fixtest);
         }
 
@@ -172,8 +175,8 @@ namespace HttpContextMover.Test
         End Class
     End Namespace";
 
-            var expected1 = VerifyVB.Diagnostic("HttpContextMover").WithLocation(0);
-            var expected2 = VerifyVB.Diagnostic().WithLocation(0);
+            var expected1 = VerifyVB.Diagnostic().WithLocation(0).WithArguments(HttpContextName, HttpContextCurrentName);
+            var expected2 = VerifyVB.Diagnostic().WithLocation(0).WithArguments(HttpContextName, HttpContextCurrentName);
 
             await VerifyVB.VerifyCodeFixAsync(test, expected1, fixtest, expected2);
         }
@@ -194,7 +197,7 @@ namespace HttpContextMover.Test
         End Class
     End Namespace";
 
-            var expected1 = VerifyVB.Diagnostic("HttpContextMover").WithLocation(0);
+            var expected1 = VerifyVB.Diagnostic().WithLocation(0).WithArguments(HttpContextName, HttpContextCurrentName);
 
             await VerifyVB.VerifyCodeFixAsync(test, expected1, test, expected1);
         }
@@ -241,7 +244,7 @@ namespace HttpContextMover.Test
             End Function
         End Class
     End Namespace";
-            var expected = VerifyVB.Diagnostic("HttpContextMover").WithLocation(0);
+            var expected = VerifyVB.Diagnostic().WithLocation(0).WithArguments(HttpContextName, HttpContextCurrentName);
 
             var test = new VerifyVB.Test
             {
@@ -302,7 +305,7 @@ namespace HttpContextMover.Test
             End Function
         End Class
     End Namespace";
-            var expected = VerifyVB.Diagnostic("HttpContextMover").WithLocation(0);
+            var expected = VerifyVB.Diagnostic().WithLocation(0).WithArguments(HttpContextName, HttpContextCurrentName);
 
             var test = new VerifyVB.Test
             {
