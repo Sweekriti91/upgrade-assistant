@@ -6,6 +6,7 @@ using Microsoft.CodeAnalysis.Editing;
 using Microsoft.CodeAnalysis.FindSymbols;
 using Microsoft.CodeAnalysis.Operations;
 using System;
+using System.Collections.Generic;
 using System.Collections.Immutable;
 using System.Diagnostics.CodeAnalysis;
 using System.Linq;
@@ -253,7 +254,7 @@ namespace HttpContextMover
                 return null;
             }
 
-            foreach (var member in typeSymbol.GetMembers())
+            foreach (var member in GetAllMembers(typeSymbol, !symbol.IsStatic))
             {
                 if (member is IPropertySymbol property && SymbolEqualityComparer.Default.Equals(property.Type, type))
                 {
@@ -266,6 +267,39 @@ namespace HttpContextMover
             }
 
             return null;
+        }
+
+        private static IEnumerable<ISymbol> GetAllMembers(INamedTypeSymbol? symbol, bool includeInstance)
+        {
+            var allowPrivate = true;
+
+            while (symbol is not null)
+            {
+                foreach (var member in symbol.GetMembers())
+                {
+                    if (member.IsImplicitlyDeclared)
+                    {
+                        continue;
+                    }
+
+                    if (!includeInstance && !member.IsStatic)
+                    {
+                        continue;
+                    }
+
+                    if (!allowPrivate && member.DeclaredAccessibility == Accessibility.Private)
+                    {
+                        continue;
+                    }
+
+                    yield return member;
+                }
+
+                // After the first level, we cannot see private
+                allowPrivate = false;
+
+                symbol = symbol.BaseType;
+            }
         }
 
         private string? GetEnclosingMethodParameterName(SemanticModel semanticModel, ITypeSymbol type, SyntaxNode node, CancellationToken token)
