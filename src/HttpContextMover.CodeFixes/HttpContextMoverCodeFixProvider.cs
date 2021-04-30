@@ -5,6 +5,7 @@ using Microsoft.CodeAnalysis.CodeFixes;
 using Microsoft.CodeAnalysis.Editing;
 using Microsoft.CodeAnalysis.FindSymbols;
 using Microsoft.CodeAnalysis.Operations;
+using System;
 using System.Collections.Immutable;
 using System.Diagnostics.CodeAnalysis;
 using System.Linq;
@@ -90,7 +91,7 @@ namespace HttpContextMover
             var editor = await slnEditor.GetDocumentEditorAsync(document.Id, cancellationToken);
 
             // Add parameter if not available
-            var parameter = await AddMethodParameter(editor, document, methodOperation, propertyOperation, info, cancellationToken);
+            var parameter = await GetOrAddMethodParameter(editor, document, methodOperation, propertyOperation, info, cancellationToken);
 
             if (parameter is null)
             {
@@ -98,10 +99,7 @@ namespace HttpContextMover
             }
 
             // Update node usage
-            var text = editor.Generator.GetName(parameter);
-            var name = editor.Generator.IdentifierName(text);
-
-            editor.ReplaceNode(propertyOperation.Syntax, name);
+            editor.ReplaceNode(propertyOperation.Syntax, parameter);
 
             if (methodOperation.SemanticModel?.GetDeclaredSymbol(methodOperation.Syntax, cancellationToken) is ISymbol methodSymbol)
             {
@@ -112,10 +110,17 @@ namespace HttpContextMover
         }
 
         private IOperation? GetEnclosingMethodOperation(IOperation? operation)
+            => GetParentOperation(operation, IsEnclosedMethodOperation);
+
+        private TOperation? GetParentOperation<TOperation>(IOperation? operation)
+            where TOperation : class, IOperation
+            => GetParentOperation(operation, static o => o is TOperation) as TOperation;
+
+        private IOperation? GetParentOperation(IOperation? operation, Func<IOperation, bool> func)
         {
             while (operation is not null)
             {
-                if (IsEnclosedMethodOperation(operation))
+                if (func(operation))
                 {
                     return operation;
                 }
@@ -151,7 +156,7 @@ namespace HttpContextMover
             });
         }
 
-        private async Task<SyntaxNode?> AddMethodParameter(DocumentEditor editor, Document document, IOperation methodOperation, IPropertyReferenceOperation propertyOperation, MappingInfo info, CancellationToken token)
+        private async Task<SyntaxNode?> GetOrAddMethodParameter(DocumentEditor editor, Document document, IOperation methodOperation, IPropertyReferenceOperation propertyOperation, MappingInfo info, CancellationToken token)
         {
             // Get the symbol representing the type to be renamed.
             var semanticModel = await document.GetSemanticModelAsync(token);
@@ -161,11 +166,11 @@ namespace HttpContextMover
                 return default;
             }
 
-            var parameter = GetExistingParameterSymbol(semanticModel, propertyOperation.Type, methodOperation, token);
+            var expression = GetExistingExpression(semanticModel, propertyOperation.Property, editor, propertyOperation.Syntax, token);
 
-            if (parameter is not null && !parameter.DeclaringSyntaxReferences.IsEmpty)
+            if (expression is not null)
             {
-                return parameter.DeclaringSyntaxReferences[0].GetSyntax(token);
+                return expression;
             }
 
             var propertyTypeSyntaxNode = editor.Generator.NameExpression(propertyOperation.Property.Type);
@@ -174,7 +179,7 @@ namespace HttpContextMover
 
             editor.AddParameter(methodOperation.Syntax, p);
 
-            return p;
+            return editor.Generator.IdentifierName(info.VariableName);
         }
 
         private async Task UpdateCallers(SemanticModel semanticModel, ISymbol methodSymbol, IPropertySymbol property, SolutionEditor slnEditor, CancellationToken token)
@@ -215,23 +220,57 @@ namespace HttpContextMover
 
                 if (invocationNode is not null)
                 {
-                    var argument = GetParameter(semanticModel, property, editor, invocationNode, token);
+                    var expression = GetExistingExpression(semanticModel, property, editor, invocationNode, token) ?? CreateDefaultParameter();
+                    var argument = editor.Generator.Argument(expression);
                     var newInvocation = AddArgumentToInvocation(invocationNode, (TArgument)argument);
 
                     editor.ReplaceNode(invocationNode, newInvocation);
+
+                    SyntaxNode CreateDefaultParameter()
+                    {
+                        var httpContextType = editor.Generator.NameExpression(property.Type);
+                        return editor.Generator.MemberAccessExpression(httpContextType, "Current");
+                    }
+
                 }
             }
+        }
+
+        private string? GetPropertyName(SemanticModel semanticModel, ITypeSymbol type, SyntaxNode node, CancellationToken token)
+        {
+            var operation = semanticModel.GetOperation(node);
+            var methodOperation = GetEnclosingMethodOperation(operation);
+
+            if (methodOperation is null)
+            {
+                return null;
+            }
+
+            var symbol = semanticModel.GetDeclaredSymbol(methodOperation.Syntax);
+
+            if (symbol?.ContainingType is not INamedTypeSymbol typeSymbol)
+            {
+                return null;
+            }
+
+            foreach (var member in typeSymbol.GetMembers())
+            {
+                if (member is IPropertySymbol property && SymbolEqualityComparer.Default.Equals(property.Type, type))
+                {
+                    return property.Name;
+                }
+                else if (member is IFieldSymbol field && SymbolEqualityComparer.Default.Equals(field.Type, type))
+                {
+                    return field.Name;
+                }
+            }
+
+            return null;
         }
 
         private string? GetEnclosingMethodParameterName(SemanticModel semanticModel, ITypeSymbol type, SyntaxNode node, CancellationToken token)
         {
             var operation = semanticModel.GetOperation(node);
-
-            if (operation is null)
-            {
-                return null;
-            }
-
             var methodOperation = GetEnclosingMethodOperation(operation);
 
             if (methodOperation is null)
@@ -244,19 +283,33 @@ namespace HttpContextMover
             return parameter?.Name;
         }
 
-        private SyntaxNode GetParameter(SemanticModel model, IPropertySymbol property, SyntaxEditor editor, SyntaxNode invocation, CancellationToken token)
+        private SyntaxNode? GetExistingExpression(SemanticModel model, IPropertySymbol property, SyntaxEditor editor, SyntaxNode invocation, CancellationToken token)
         {
-            var name = GetEnclosingMethodParameterName(model, property.Type, invocation, token);
+            return GetParameterFromMethod() ?? GetParameterFromProperty();
 
-            if (name is not null)
+            SyntaxNode? GetParameterFromMethod()
             {
-                return editor.Generator.Argument(editor.Generator.IdentifierName(name));
+                var name = GetEnclosingMethodParameterName(model, property.Type, invocation, token);
+
+                if (name is not null)
+                {
+                    return editor.Generator.IdentifierName(name);
+                }
+
+                return null;
             }
 
-            var httpContextType = editor.Generator.NameExpression(property.Type);
-            var expression = editor.Generator.MemberAccessExpression(httpContextType, "Current");
+            SyntaxNode? GetParameterFromProperty()
+            {
+                var name = GetPropertyName(model, property.Type, invocation, token);
 
-            return editor.Generator.Argument(expression);
+                if (name is not null)
+                {
+                    return editor.Generator.IdentifierName(name);
+                }
+
+                return null;
+            }
         }
 
         private TInvocationNode? GetInvocationExpression(SyntaxNode callerNode)

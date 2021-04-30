@@ -80,6 +80,94 @@ namespace HttpContextMover.Test
         }
 
         [Fact]
+        public async Task ReuseProperty()
+        {
+            var test = @"
+    Imports System.Web
+
+    Namespace ConsoleApplication1
+        Class Program
+            Public Property SomeContext As HttpContext
+                Get
+                    Return Nothing
+                End Get
+                Set(value As HttpContext)
+                End Set
+            End Property
+
+            Public  Sub Test()
+                Dim c = {|#0:HttpContext.Current|}
+            End Sub
+        End Class
+    End Namespace";
+            var fixtest = @"
+    Imports System.Web
+
+    Namespace ConsoleApplication1
+        Class Program
+            Public Property SomeContext As HttpContext
+                Get
+                    Return Nothing
+                End Get
+                Set(value As HttpContext)
+                End Set
+            End Property
+
+            Public  Sub Test()
+                Dim c = SomeContext
+        End Sub
+        End Class
+    End Namespace";
+
+            var expected = VerifyVB.Diagnostic().WithLocation(0).WithArguments(HttpContextName, HttpContextCurrentName);
+            await VerifyVB.VerifyCodeFixAsync(test, expected, fixtest);
+        }
+
+        [Fact]
+        public async Task ReuseArgumentNotProperty()
+        {
+            var test = @"
+    Imports System.Web
+
+    Namespace ConsoleApplication1
+        Class Program
+            Public Property SomeContext As HttpContext
+                Get
+                    Return Nothing
+                End Get
+                Set(value As HttpContext)
+                End Set
+            End Property
+
+            Public  Sub Test(currentContext As HttpContext)
+                Dim c = {|#0:HttpContext.Current|}
+            End Sub
+        End Class
+    End Namespace";
+            var fixtest = @"
+    Imports System.Web
+
+    Namespace ConsoleApplication1
+        Class Program
+            Public Property SomeContext As HttpContext
+                Get
+                    Return Nothing
+                End Get
+                Set(value As HttpContext)
+                End Set
+            End Property
+
+            Public  Sub Test(currentContext As HttpContext)
+                Dim c = currentContext
+        End Sub
+        End Class
+    End Namespace";
+
+            var expected = VerifyVB.Diagnostic().WithLocation(0).WithArguments(HttpContextName, HttpContextCurrentName);
+            await VerifyVB.VerifyCodeFixAsync(test, expected, fixtest);
+        }
+
+        [Fact]
         public async Task ReuseParameterName()
         {
             var test = @"

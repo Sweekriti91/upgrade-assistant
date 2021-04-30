@@ -120,6 +120,82 @@ namespace HttpContextMover.Test
         }
 
         [Fact]
+        public async Task ReuseProperty()
+        {
+            var test = @"
+    using System.Web;
+
+    namespace ConsoleApplication1
+    {
+        class Program
+        {
+            public HttpContext SomeContext => null;
+
+            public void Test()
+            {
+                _ = {|#0:HttpContext.Current|};
+            }
+        }
+    }";
+            var fixtest = @"
+    using System.Web;
+
+    namespace ConsoleApplication1
+    {
+        class Program
+        {
+            public HttpContext SomeContext => null;
+
+            public void Test()
+            {
+                _ = SomeContext;
+            }
+        }
+    }";
+
+            var expected = VerifyCS.Diagnostic().WithLocation(0).WithArguments(HttpContextName, HttpContextCurrentName);
+            await VerifyCS.VerifyCodeFixAsync(test, expected, fixtest);
+        }
+
+        [Fact]
+        public async Task ReuseArgumentNotProperty()
+        {
+            var test = @"
+    using System.Web;
+
+    namespace ConsoleApplication1
+    {
+        class Program
+        {
+            public HttpContext SomeContext => null;
+
+            public void Test(HttpContext currentContext)
+            {
+                _ = {|#0:HttpContext.Current|};
+            }
+        }
+    }";
+            var fixtest = @"
+    using System.Web;
+
+    namespace ConsoleApplication1
+    {
+        class Program
+        {
+            public HttpContext SomeContext => null;
+
+            public void Test(HttpContext currentContext)
+            {
+                _ = currentContext;
+            }
+        }
+    }";
+
+            var expected = VerifyCS.Diagnostic().WithLocation(0).WithArguments(HttpContextName, HttpContextCurrentName);
+            await VerifyCS.VerifyCodeFixAsync(test, expected, fixtest);
+        }
+
+        [Fact]
         public async Task InArgument()
         {
             var test = @"
