@@ -26,8 +26,6 @@
   <Import Sdk="Microsoft.NET.Sdk" Project="Sdk.targets" />
   <Import Project="$(VSToolsPath)\VSSDK\Microsoft.VsSDK.targets" Condition="Exists('$(VSToolsPath)\VSSDK\Microsoft.VsSDK.targets')" />
   <ItemGroup>
-    <ProjectReference Include="..\HttpContextMover.CodeFixes.CSharp\HttpContextMover.CodeFixes.CSharp.csproj" />
-    <ProjectReference Include="..\HttpContextMover.CodeFixes.VisualBasic\HttpContextMover.CodeFixes.VisualBasic.csproj" />
     <ProjectReference Include="..\HttpContextMover\HttpContextMover.csproj" />
   </ItemGroup>
   <ItemGroup>

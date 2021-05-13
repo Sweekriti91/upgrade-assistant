@@ -22,8 +22,7 @@
     <TargetsForTfmSpecificContentInPackage>$(TargetsForTfmSpecificContentInPackage);_AddAnalyzersToOutput</TargetsForTfmSpecificContentInPackage>
   </PropertyGroup>
   <ItemGroup>
-    <ProjectReference Include="..\HttpContextMover.CodeFixes.CSharp\HttpContextMover.CodeFixes.CSharp.csproj" />
-    <ProjectReference Include="..\HttpContextMover.CodeFixes.VisualBasic\HttpContextMover.CodeFixes.VisualBasic.csproj" />
+    <ProjectReference Include="..\HttpContextMover.CodeFixes\HttpContextMover.CodeFixes.csproj" />
     <ProjectReference Include="..\HttpContextMover\HttpContextMover.csproj" />
   </ItemGroup>
   <ItemGroup>
@@ -33,8 +32,8 @@
     <ItemGroup>
       <TfmSpecificPackageFile Include="$(OutputPath)\HttpContextMover.dll" PackagePath="analyzers/dotnet/cs" />
       <TfmSpecificPackageFile Include="$(OutputPath)\HttpContextMover.dll" PackagePath="analyzers/dotnet/vb" />
-      <TfmSpecificPackageFile Include="$(OutputPath)\HttpContextMover.CodeFixes.CSharp.dll" PackagePath="analyzers/dotnet/cs" />
-      <TfmSpecificPackageFile Include="$(OutputPath)\HttpContextMover.CodeFixes.VisualBasic.dll" PackagePath="analyzers/dotnet/vb" />
+      <TfmSpecificPackageFile Include="$(OutputPath)\HttpContextMover.CodeFixes.dll" PackagePath="analyzers/dotnet/cs" />
+      <TfmSpecificPackageFile Include="$(OutputPath)\HttpContextMover.CodeFixes.dll" PackagePath="analyzers/dotnet/vb" />
     </ItemGroup>
   </Target>
 </Project>
